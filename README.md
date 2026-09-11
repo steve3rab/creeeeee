@@ -128,6 +128,47 @@ pas la même taille selon la plateforme (UTF-16 sous Windows, UTF-32 sous
 Linux/macOS) : voir `include/creo/detail/utf8.hpp` pour le détail de la
 conversion, indépendante de toute bibliothèque externe.
 
+### Fonctions ProTOOLKIT en entrée/sortie (Get / Set)
+
+Beaucoup de fonctions ProTOOLKIT partagent la même forme en C —
+`ProError Xxx(ProName option, ProPath option_value)` — que le buffer serve
+d'entrée (`...Set`) ou de sortie (`...Get`) ; rien dans le type ne le dit,
+c'est une convention documentaire PTC. Le wrapper s'utilise identiquement
+dans les deux cas, seule la façon de construire l'objet change :
+
+```cpp
+#include "creo/error.hpp"
+#include "creo/types.hpp"
+
+// --- Set : le buffer est déjà rempli avant l'appel (entrée) ---
+creo::Name option("pro_line_font");
+creo::Path option_value("solid");
+CREO_CHECK(ProConfigoptSet(option, option_value));
+
+// --- Get : le buffer est vide avant l'appel, rempli par ProTOOLKIT (sortie) ---
+creo::Name option2("pro_line_font");
+creo::Path option_value2;                    // vide, à remplir
+CREO_CHECK(ProConfigoptionGet(option2, option_value2));
+
+std::string value = option_value2.ToString(); // ou .ToWString()
+```
+
+Et pour repartir d'un `std::string`/`std::wstring` vers un `ProPath` (par
+exemple pour un nouvel appel `...Set` avec une valeur calculée) :
+
+```cpp
+std::string new_value = "hidden";
+
+creo::Path p1(new_value);        // construit un nouveau Path
+option_value.Assign(new_value);  // ou réutilise un Path existant
+
+CREO_CHECK(ProConfigoptSet(option, option_value));
+```
+
+`Assign()` (comme le constructeur) vérifie la capacité du buffer visé
+(`Path` = 260 caractères) et lève `std::length_error` plutôt que de
+tronquer silencieusement une valeur trop longue.
+
 ### Types disponibles (`include/creo/types.hpp`)
 
 Deux familles de buffers texte à taille fixe, selon ce que PTC utilise
