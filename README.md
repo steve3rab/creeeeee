@@ -49,14 +49,12 @@ examples/
 cmake/
   FindProToolkit.cmake            Localise le SDK ProTOOLKIT installé
 srcAcopier/
-  types.hpp, error.hpp,           Mêmes fichiers que ci-dessus mais à plat
-  protoolkit_compat.hpp,          (aucun sous-dossier, mêmes noms de
-  protoolkit_shim.hpp,            fichiers) et avec des #include relatifs
-  utf8.hpp, error.cpp             (sans préfixe "creo/") : à copier tel
-                                   quel dans un vrai projet ProTOOLKIT (SDK
-                                   + licence disponibles), sans avoir
-                                   besoin de configurer de chemin
-                                   d'inclusion supplémentaire.
+  types.hpp, error.hpp,           Version à plat (aucun sous-dossier, pas
+  protoolkit_compat.hpp,          de commentaires) pour un vrai projet
+  utf8.hpp, error.cpp             ProTOOLKIT (SDK + licence disponibles) :
+                                   CREO_WRAPPER_HAS_REAL_SDK y est figé à 1
+                                   (pas de mode shim, le SDK réel est
+                                   requis à la compilation).
 ```
 
 ## Compilation
