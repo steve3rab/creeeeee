@@ -88,7 +88,10 @@ std::printf("Modèle actif : %s\n", name.ToString().c_str());
 
 `CREO_CHECK` enveloppe n'importe quel appel ProTOOLKIT retournant un
 `ProError` et lève une `creo::ProToolkitError` en cas d'échec, avec le code
-d'erreur natif accessible via `.code()`.
+d'erreur natif accessible via `.code()`. Le message de l'exception inclut
+le libellé symbolique du code (`creo::ToString`), qui couvre l'intégralité
+de l'énum `ProError`/`ProErr` officielle de Creo 10 (`PRO_TK_BAD_INPUTS`,
+`PRO_TK_NO_LICENSE`, ...) — pas seulement le numéro brut.
 
 ### Conversions std::string / std::wstring
 

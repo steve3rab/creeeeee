@@ -26,11 +26,11 @@ private:
   ErrorCode code_;
 };
 
-// Convertit un ProError en texte. La table exhaustive des libellés (une
-// centaine de codes) vit dans ProToolkitErrors.h du SDK PTC et n'est pas
-// dupliquée ici pour éviter de propager des valeurs invérifiées ; cette
-// fonction renvoie donc le code numérique accompagné d'un renvoi vers cette
-// référence, sauf pour PRO_TK_NO_ERROR.
+// Convertit un ProError en texte, ex : ToString(-2) -> "PRO_TK_BAD_INPUTS".
+// Couvre l'intégralité de l'énum ProError/ProErr officielle (ProError.h,
+// Creo 10). Pour un code hors de cette liste (autre version de Creo, ou
+// code applicatif), renvoie le numéro brut plutôt que d'inventer un
+// libellé — voir src/error.cpp pour la table complète.
 std::string ToString(ErrorCode code);
 
 // Lève une ProToolkitError si `code` n'est pas PRO_TK_NO_ERROR. `context`
