@@ -1,18 +1,4 @@
 #pragma once
-// -----------------------------------------------------------------------
-// Conversion UTF-8 <-> wide string, sans dépendance externe.
-//
-// ProTOOLKIT manipule le texte en wchar_t, mais la taille (et donc
-// l'encodage implicite) de wchar_t diffère selon la plateforme :
-//   - 2 octets, UTF-16 (avec paires de substituts) sous Windows ;
-//   - 4 octets, UTF-32 (un wchar_t = un point de code) sous Linux/macOS.
-//
-// `std::wstring_convert`/`codecvt_utf8<wchar_t>` ne gère correctement que
-// le second cas et est de toute façon dépréciée depuis C++17 : ces
-// fonctions font la conversion à la main, correctement dans les deux cas,
-// pour offrir une représentation std::string (UTF-8) stable quelle que
-// soit la plateforme de compilation.
-// -----------------------------------------------------------------------
 
 #include <cstdint>
 #include <string>
@@ -38,14 +24,11 @@ inline void AppendUtf8(std::string &out, std::uint32_t codepoint) {
   }
 }
 
-// Encode une chaîne wide (telle que renvoyée par un buffer ProTOOLKIT
-// ProName/ProLine/ProPath) en UTF-8.
 inline std::string ToUtf8(std::wstring_view text) {
   std::string out;
   out.reserve(text.size());
 
   if constexpr (sizeof(wchar_t) == 2) {
-    // wchar_t = unité UTF-16 : recombiner les paires de substituts.
     for (std::size_t i = 0; i < text.size(); ++i) {
       std::uint32_t unit = static_cast<std::uint16_t>(text[i]);
       if (unit >= 0xD800 && unit <= 0xDBFF && i + 1 < text.size()) {
@@ -59,7 +42,6 @@ inline std::string ToUtf8(std::wstring_view text) {
       AppendUtf8(out, unit);
     }
   } else {
-    // wchar_t = point de code direct (UTF-32).
     for (wchar_t ch : text) {
       AppendUtf8(out, static_cast<std::uint32_t>(ch));
     }
@@ -67,8 +49,6 @@ inline std::string ToUtf8(std::wstring_view text) {
   return out;
 }
 
-// Décode une chaîne UTF-8 en wide string, pour construire un buffer
-// ProTOOLKIT (ProName/ProLine/ProPath) à partir d'un std::string.
 inline std::wstring FromUtf8(std::string_view text) {
   std::wstring out;
   out.reserve(text.size());
@@ -91,12 +71,12 @@ inline std::wstring FromUtf8(std::string_view text) {
       codepoint = c0 & 0x07;
       extra = 3;
     } else {
-      ++i; // octet de tête invalide : ignoré.
+      ++i;
       continue;
     }
 
     if (i + extra >= text.size()) {
-      break; // séquence tronquée en fin de chaîne.
+      break;
     }
 
     bool valid = true;
@@ -127,4 +107,4 @@ inline std::wstring FromUtf8(std::string_view text) {
   return out;
 }
 
-} // namespace creo::detail
+}
