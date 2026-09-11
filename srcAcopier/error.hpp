@@ -12,10 +12,6 @@ namespace creo {
 // quand celui-ci est disponible (cf. detail/protoolkit_compat.hpp).
 using ErrorCode = detail::ProErrorCode;
 
-// Exception levée par le wrapper à chaque appel ProTOOLKIT en échec.
-// Conserve le code d'erreur natif pour permettre un traitement fin en amont
-// (catch ciblé sur un code précis), en plus du message lisible standard
-// hérité de std::runtime_error.
 class ProToolkitError : public std::runtime_error {
 public:
   ProToolkitError(ErrorCode code, std::string_view context);
