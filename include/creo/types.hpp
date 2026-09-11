@@ -93,6 +93,55 @@ private:
   wchar_t buffer_[kCapacity];
 };
 
+// ---------------------------------------------------------------------------
+// FixedCharString<N>
+// ---------------------------------------------------------------------------
+// Certains buffers ProTOOLKIT ne sont PAS en wchar_t : ProCharName,
+// ProCharPath, ProCharLine ainsi que les types "menu" (ProMenuName,
+// ProMenufileName, ProMenubuttonName) sont des `char[N]` côté C. Comme les
+// deux côtés (buffer et conversion std::string) sont déjà en char, il n'y a
+// ici aucune histoire d'encodage à gérer — contrairement à FixedWString,
+// une simple copie suffit.
+template <std::size_t N> class FixedCharString {
+public:
+  static constexpr std::size_t kCapacity = N;
+
+  FixedCharString() noexcept { buffer_[0] = '\0'; }
+
+  explicit FixedCharString(std::string_view text) { Assign(text); }
+
+  void Assign(std::string_view text) {
+    if (text.size() >= kCapacity) {
+      throw std::length_error(
+          "valeur trop longue pour ce buffer ProTOOLKIT (capacité "
+          "insuffisante)");
+    }
+    for (std::size_t i = 0; i < text.size(); ++i) {
+      buffer_[i] = text[i];
+    }
+    buffer_[text.size()] = '\0';
+  }
+
+  std::size_t Length() const noexcept {
+    std::size_t len = 0;
+    while (len < kCapacity && buffer_[len] != '\0') {
+      ++len;
+    }
+    return len;
+  }
+
+  std::string ToString() const { return std::string(buffer_, Length()); }
+
+  char *Raw() noexcept { return buffer_; }
+  const char *Raw() const noexcept { return buffer_; }
+
+  operator char *() noexcept { return buffer_; }
+  operator const char *() const noexcept { return buffer_; }
+
+private:
+  char buffer_[kCapacity];
+};
+
 // Correspond à `ProName` (taille PRO_NAME_SIZE = 32) : "tout autre nom
 // Creo Parametric" (feature, paramètre, repère, ...) — PTC distingue
 // explicitement ce type de ProMdlName (voir ModelName ci-dessous), les deux
@@ -129,27 +178,32 @@ using Value = FixedWString<detail::kValueSize>;
 // référence de feature.
 using FeatRefKey = FixedWString<detail::kFeatRefKeySize>;
 
-// Correspond à la taille PRO_TYPE_SIZE = 4 : code court de type de modèle
-// ("prt", "asm", "drw", etc. + terminateur).
-using ModelTypeCode = FixedWString<detail::kTypeSize>;
+// Les constantes PRO_TYPE_SIZE, PRO_EXTENSION_SIZE et PRO_VERSION_SIZE
+// n'apparaissent dans les en-têtes PTC QUE combinées à l'intérieur de
+// ProMdlFileName / ProFileName (voir plus bas) : il n'existe pas de
+// typedef PTC autonome "ProType"/"ProExtension"/"ProVersion". Les trois
+// alias suivants sont donc des briques utilitaires propres à ce wrapper
+// (pratiques pour construire/décomposer un nom de fichier morceau par
+// morceau), pas la réexposition d'un type PTC existant.
+using ModelTypeCode = FixedWString<detail::kTypeSize>;    // "prt"/"asm"/"drw"
+using Extension = FixedWString<detail::kExtensionSize>;   // ext. générique
+using VersionSuffix = FixedWString<detail::kVersionSize>; // "nom.ext.<ver>"
 
-// Correspond à la taille PRO_EXTENSION_SIZE = 4 : extension de fichier
-// générique (3 caractères + terminateur NULL).
-using Extension = FixedWString<detail::kExtensionSize>;
-
-// Correspond à la taille PRO_MDLEXTENSION_SIZE = 32 : extension de fichier
-// d'un modèle Creo Parametric.
+// Correspond à `ProMdlExtension` (taille PRO_MDLEXTENSION_SIZE = 32) :
+// extension de fichier d'un modèle Creo Parametric. Celui-ci, en revanche,
+// est un vrai typedef PTC.
 using ModelExtension = FixedWString<detail::kMdlExtensionSize>;
-
-// Correspond à la taille PRO_VERSION_SIZE = 4 : numéro de version tel qu'il
-// apparaît dans un nom de fichier ("nom.ext.<version>").
-using VersionSuffix = FixedWString<detail::kVersionSize>;
 
 // Nombre maximum de niveaux d'imbrication d'assemblage pris en charge par
 // ProTOOLKIT (PRO_MAX_ASSEM_LEVEL). Ce n'est pas une taille de buffer texte,
 // juste une limite numérique — exposée ici pour rester à côté des autres
 // constantes ProTOOLKIT du wrapper.
 inline constexpr int MaxAssemLevel = detail::kMaxAssemLevel;
+
+// Correspond à `ProMacro` (taille PRO_MACRO_SIZE = 256). Note PTC reprise
+// ici : cette taille n'est plus une limite réelle pour ProMacroLoad(), le
+// typedef (et cet alias) ne sont conservés que pour compatibilité.
+using Macro = FixedWString<detail::kMacroSize>;
 
 // ---------------------------------------------------------------------------
 // Types composites (noms de fichiers complets)
@@ -159,19 +213,19 @@ inline constexpr int MaxAssemLevel = detail::kMaxAssemLevel;
 // couvrent un nom de fichier complet "nom.ext.#" ou une instance de table
 // de famille "instance[generic]".
 
-// Correspond à `ProFileMdlname` (PRO_FILE_MDLNAME_SIZE) : nom de fichier
+// Correspond à `ProMdlFileName` (PRO_FILE_MDLNAME_SIZE) : nom de fichier
 // complet d'un modèle Creo Parametric, au format "nom.ext.#".
-using FileMdlName = FixedWString<detail::kFileMdlNameSize>;
+using MdlFileName = FixedWString<detail::kFileMdlNameSize>;
 
 // Correspond à `ProFileName` (PRO_FILE_NAME_SIZE) : nom de fichier complet
 // générique, au format "nom.ext.#".
 using FileName = FixedWString<detail::kFileNameSize>;
 
-// Correspond à `ProFamtabFieldname` (PRO_FAMTAB_FIELDNAME_SIZE) : nom d'un
-// champ de table de famille (même taille qu'un ProPath).
-using FamTabFieldName = FixedWString<detail::kFamTabFieldNameSize>;
+// Correspond à `ProFamtabClmDesc` (PRO_FAMTAB_FIELDNAME_SIZE) : description
+// de colonne d'une table de famille (même taille qu'un ProPath).
+using FamTabColumnDesc = FixedWString<detail::kFamTabFieldNameSize>;
 
-// Correspond à `ProFamilyMdlname` (PRO_FAMILY_MDLNAME_SIZE) : nom d'une
+// Correspond à `ProFamilyMdlName` (PRO_FAMILY_MDLNAME_SIZE) : nom d'une
 // instance de table de famille pour un modèle, au format
 // "instance[generic]".
 using FamilyMdlName = FixedWString<detail::kFamilyMdlNameSize>;
@@ -179,6 +233,37 @@ using FamilyMdlName = FixedWString<detail::kFamilyMdlNameSize>;
 // Correspond à `ProFamilyName` (PRO_FAMILY_NAME_SIZE) : équivalent
 // générique de FamilyMdlName, au format "instance[generic]".
 using FamilyName = FixedWString<detail::kFamilyNameSize>;
+
+// Correspond à `ProDisplayModelName` : nom d'affichage d'un modèle. PTC lui
+// donne la même taille qu'à ProFamilyMdlName (PRO_FAMILY_MDLNAME_SIZE).
+using DisplayModelName = FixedWString<detail::kFamilyMdlNameSize>;
+
+// ---------------------------------------------------------------------------
+// Buffers en char (non wide) : ProCharName, ProCharPath, ProCharLine et les
+// types "menu" ci-dessous sont, contrairement à Name/Line/Path, des
+// `char[N]` côté C — voir FixedCharString ci-dessus.
+// ---------------------------------------------------------------------------
+
+// Correspond à `ProCharName` (PRO_NAME_SIZE) : variante char de Name.
+using CharName = FixedCharString<detail::kNameSize>;
+
+// Correspond à `ProCharPath` (PRO_PATH_SIZE) : variante char de Path.
+using CharPath = FixedCharString<detail::kPathSize>;
+
+// Correspond à `ProCharLine` (PRO_LINE_SIZE) : "message constant" côté PTC,
+// variante char de Line.
+using CharLine = FixedCharString<detail::kLineSize>;
+
+// Correspond à `ProMenuName` (PRO_NAME_SIZE) : nom d'un menu ProTOOLKIT.
+using MenuName = FixedCharString<detail::kNameSize>;
+
+// Correspond à `ProMenufileName` (PRO_NAME_SIZE) : nom de fichier menu
+// (.mnu).
+using MenuFileName = FixedCharString<detail::kNameSize>;
+
+// Correspond à `ProMenubuttonName` (PRO_NAME_SIZE) : nom d'un bouton de
+// menu.
+using MenuButtonName = FixedCharString<detail::kNameSize>;
 
 // ---------------------------------------------------------------------------
 // ModelHandle

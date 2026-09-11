@@ -36,6 +36,9 @@ constexpr int kVersionSize = 4;
 constexpr int kMaxAssemLevel = 25; // Pas une taille de buffer : nombre max
                                     // de niveaux d'imbrication d'assemblage.
 constexpr int kFeatRefKeySize = 81;
+// PRO_MACRO_SIZE : conservée par PTC pour compatibilité applicative
+// uniquement, ProMacroLoad() n'est plus limitée par cette taille.
+constexpr int kMacroSize = 256;
 
 // --- Tailles composites (mêmes formules que les macros PTC) --------------
 
@@ -48,12 +51,6 @@ constexpr int kFamTabFieldNameSize = kPathSize;
 // "instance[generic]"
 constexpr int kFamilyMdlNameSize = kMdlNameSize + kMdlNameSize + 2;
 constexpr int kFamilyNameSize = kNameSize + kNameSize + 2;
-
-// ProTOOLKIT manipule le texte en wchar_t depuis Pro/ENGINEER Wildfire.
-using ProName = wchar_t[kNameSize];
-using ProLine = wchar_t[kLineSize];
-using ProPath = wchar_t[kPathSize];
-using ProMdlName = wchar_t[kMdlNameSize];
 
 // Handle de modèle Creo (ProMdl) : un pointeur opaque, jamais déréférencé
 // par le code appelant. Seul ProTOOLKIT connaît la structure pointée ; on

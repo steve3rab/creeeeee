@@ -110,28 +110,50 @@ conversion, indépendante de toute bibliothèque externe.
 
 ### Types disponibles (`include/creo/types.hpp`)
 
-Chaque type ci-dessous est un `FixedWString<N>` de la taille officielle
-PTC pour Creo Parametric 10.0 (voir `detail/protoolkit_compat.hpp` pour le
+Deux familles de buffers texte à taille fixe, selon ce que PTC utilise
+côté C (voir `detail/protoolkit_compat.hpp`/`protoolkit_shim.hpp` pour le
 détail des constantes `PRO_*_SIZE`) :
 
-| Type C++            | Buffer ProTOOLKIT      | Taille | Usage                                   |
-|----------------------|------------------------|-------:|------------------------------------------|
-| `Name`               | `ProName`              |     32 | Nom générique (feature, paramètre, ...) |
-| `ModelName`          | `ProMdlName`           |    180 | Nom d'un modèle (ProMdlMdlNameGet)       |
-| `Line`               | `ProLine`              |     81 | Ligne de texte (messages)                |
-| `Path`               | `ProPath`               |    260 | Chemin de fichier / répertoire          |
-| `Comment`            | `ProComment`            |    256 | Commentaire                              |
-| `Value`              | `ProValue`              |    256 | Valeur de paramètre (texte)              |
-| `FeatRefKey`         | `ProFeatrefKey`         |     81 | Clé de référence de feature              |
-| `ModelTypeCode`      | (`PRO_TYPE_SIZE`)       |      4 | "prt", "asm", "drw", ...                 |
-| `Extension`          | (`PRO_EXTENSION_SIZE`)  |      4 | Extension de fichier générique           |
-| `ModelExtension`     | (`PRO_MDLEXTENSION_SIZE`)|    32 | Extension de fichier modèle              |
-| `VersionSuffix`      | (`PRO_VERSION_SIZE`)    |      4 | Numéro de version dans un nom de fichier |
-| `FileMdlName`        | `ProFileMdlname`        |    216 | Nom de fichier complet "nom.ext.#"       |
-| `FileName`           | `ProFileName`           |     40 | Idem, cas générique                      |
-| `FamTabFieldName`    | `ProFamtabFieldname`    |    260 | Champ de table de famille                |
-| `FamilyMdlName`      | `ProFamilyMdlname`      |    362 | Instance de table de famille "inst[gen]" |
-| `FamilyName`         | `ProFamilyName`         |     66 | Idem, cas générique                      |
+**Buffers wide (`wchar_t[N]`, gabarit `FixedWString<N>`)** — la majorité
+des types texte ProTOOLKIT depuis Pro/ENGINEER Wildfire :
+
+| Type C++            | Buffer ProTOOLKIT      | Taille | Usage                                    |
+|----------------------|------------------------|-------:|-------------------------------------------|
+| `Name`               | `ProName`              |     32 | Nom générique (feature, paramètre, ...)  |
+| `ModelName`          | `ProMdlName`           |    180 | Nom d'un modèle (ProMdlMdlNameGet)        |
+| `Line`               | `ProLine`              |     81 | Ligne de texte (messages)                 |
+| `Path`               | `ProPath`              |    260 | Chemin de fichier / répertoire            |
+| `Comment`            | `ProComment`           |    256 | Commentaire                               |
+| `Value`              | (`PRO_VALUE_SIZE`)     |    256 | Valeur de paramètre (texte)               |
+| `FeatRefKey`         | (`PRO_FEATREF_KEY_SIZE`)|     81 | Clé de référence de feature              |
+| `ModelExtension`     | `ProMdlExtension`      |     32 | Extension de fichier d'un modèle          |
+| `Macro`              | `ProMacro`             |    256 | Macro (taille conservée pour compat. PTC) |
+| `MdlFileName`        | `ProMdlFileName`       |    216 | Nom de fichier complet "nom.ext.#"        |
+| `FileName`           | `ProFileName`          |     40 | Idem, cas générique                       |
+| `FamTabColumnDesc`   | `ProFamtabClmDesc`     |    260 | Description de colonne de table de famille|
+| `FamilyMdlName`      | `ProFamilyMdlName`     |    362 | Instance de table de famille "inst[gen]"  |
+| `FamilyName`         | `ProFamilyName`        |     66 | Idem, cas générique                       |
+| `DisplayModelName`   | `ProDisplayModelName`  |    362 | Nom d'affichage d'un modèle                |
+| `ModelTypeCode`      | *(pas de typedef PTC)* |      4 | "prt"/"asm"/"drw" — brique interne         |
+| `Extension`          | *(pas de typedef PTC)* |      4 | Extension générique — brique interne       |
+| `VersionSuffix`      | *(pas de typedef PTC)* |      4 | Suffixe de version — brique interne        |
+
+`ModelTypeCode`/`Extension`/`VersionSuffix` n'ont pas d'équivalent PTC
+autonome : `PRO_TYPE_SIZE`, `PRO_EXTENSION_SIZE` et `PRO_VERSION_SIZE`
+n'apparaissent dans les en-têtes PTC que combinés à l'intérieur de
+`ProMdlFileName`/`ProFileName`. Ce sont des briques utilitaires du
+wrapper, pas la réexposition d'un type PTC.
+
+**Buffers étroits (`char[N]`, gabarit `FixedCharString<N>`)** :
+
+| Type C++          | Buffer ProTOOLKIT     | Taille | Usage                          |
+|--------------------|------------------------|-------:|---------------------------------|
+| `CharName`         | `ProCharName`          |     32 | Variante char de `Name`         |
+| `CharPath`         | `ProCharPath`          |    260 | Variante char de `Path`         |
+| `CharLine`         | `ProCharLine`          |     81 | Variante char de `Line` (messages)|
+| `MenuName`         | `ProMenuName`          |     32 | Nom de menu                     |
+| `MenuFileName`     | `ProMenufileName`      |     32 | Nom de fichier menu (.mnu)      |
+| `MenuButtonName`   | `ProMenubuttonName`    |     32 | Nom de bouton de menu           |
 
 `ModelName` (180) n'est **pas** un alias de `Name` (32) : PTC réserve une
 taille bien plus grande aux noms de modèles qu'aux autres noms Creo — les
