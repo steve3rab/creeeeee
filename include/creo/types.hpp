@@ -184,7 +184,11 @@ using FeatRefKey = FixedWString<detail::kFeatRefKeySize>;
 // typedef PTC autonome "ProType"/"ProExtension"/"ProVersion". Les trois
 // alias suivants sont donc des briques utilitaires propres à ce wrapper
 // (pratiques pour construire/décomposer un nom de fichier morceau par
-// morceau), pas la réexposition d'un type PTC existant.
+// morceau), pas la réexposition d'un type PTC existant. Les trois valent
+// 4, mais ne contiennent chacune que 3 caractères utiles + le terminateur
+// NULL — comme l'indique explicitement le commentaire PTC pour
+// PRO_EXTENSION_SIZE ("size 3; plus NULL terminator"), et pareil pour
+// PRO_TYPE_SIZE ("prt"/"asm"/"drw" : 3 lettres) et PRO_VERSION_SIZE.
 using ModelTypeCode = FixedWString<detail::kTypeSize>;    // "prt"/"asm"/"drw"
 using Extension = FixedWString<detail::kExtensionSize>;   // ext. générique
 using VersionSuffix = FixedWString<detail::kVersionSize>; // "nom.ext.<ver>"
