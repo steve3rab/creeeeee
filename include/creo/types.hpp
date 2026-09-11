@@ -1,5 +1,6 @@
 #pragma once
 #include "creo/detail/protoolkit_compat.hpp"
+#include "creo/detail/utf8.hpp"
 
 #include <cstddef>
 #include <stdexcept>
@@ -16,8 +17,8 @@ namespace creo {
 // fonctions ProTOOLKIT attendent un pointeur brut vers un tel buffer, en
 // entrée comme en sortie ; ce wrapper conserve donc le même layout mémoire
 // (un simple tableau de N wchar_t, pas d'indirection) tout en ajoutant des
-// conversions sûres vers/depuis std::wstring et des vérifications de
-// capacité absentes du C brut.
+// conversions sûres vers/depuis std::wstring et std::string (UTF-8), ainsi
+// que des vérifications de capacité absentes du C brut.
 template <std::size_t N> class FixedWString {
 public:
   // Capacité totale du buffer, terminateur nul inclus (correspond à
@@ -26,10 +27,17 @@ public:
 
   FixedWString() noexcept { buffer_[0] = L'\0'; }
 
-  // Construction à partir d'une chaîne C++. Lève std::length_error si la
-  // chaîne ne tient pas dans le buffer : contrairement au C, on ne tronque
-  // jamais silencieusement une valeur trop longue.
+  // Construction à partir d'une chaîne wide (ex: L"engrenage_01"). Lève
+  // std::length_error si la chaîne ne tient pas dans le buffer :
+  // contrairement au C, on ne tronque jamais silencieusement une valeur
+  // trop longue.
   explicit FixedWString(std::wstring_view text) { Assign(text); }
+
+  // Construction à partir d'une chaîne std::string supposée encodée en
+  // UTF-8 (ex: "engrenage_01"). Pratique pour éviter d'écrire des
+  // littéraux wide (L"...") partout côté appelant.
+  explicit FixedWString(std::string_view utf8_text)
+      : FixedWString(detail::FromUtf8(utf8_text)) {}
 
   void Assign(std::wstring_view text) {
     if (text.size() >= kCapacity) {
@@ -43,6 +51,11 @@ public:
     buffer_[text.size()] = L'\0';
   }
 
+  // Équivalent de Assign() pour une chaîne UTF-8.
+  void Assign(std::string_view utf8_text) {
+    Assign(detail::FromUtf8(utf8_text));
+  }
+
   // Longueur effective de la chaîne (hors terminateur), utile après qu'une
   // fonction ProTOOLKIT a rempli le buffer via Raw().
   std::size_t Length() const noexcept {
@@ -53,7 +66,18 @@ public:
     return len;
   }
 
+  // Récupère le contenu du buffer tel quel (wide), typiquement après un
+  // appel ProTOOLKIT du type CREO_CHECK(ProMdlMdlNameGet(model, name.Raw()));
   std::wstring ToWString() const { return std::wstring(buffer_, Length()); }
+
+  // Récupère le contenu du buffer converti en UTF-8. Le choix de l'UTF-8
+  // comme représentation std::string est délibéré : la taille de wchar_t
+  // (donc son encodage implicite) diffère entre Windows (UTF-16) et
+  // Linux/macOS (UTF-32), l'UTF-8 reste la seule représentation stable des
+  // deux côtés (voir creo/detail/utf8.hpp).
+  std::string ToString() const {
+    return detail::ToUtf8(std::wstring_view(buffer_, Length()));
+  }
 
   // Accès au buffer brut, pour passer directement aux fonctions C
   // ProTOOLKIT, ex : ProMdlMdlNameGet(model, name.Raw());

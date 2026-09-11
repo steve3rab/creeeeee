@@ -82,11 +82,30 @@ creo::ModelName name;
 CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
 
 std::wprintf(L"Modèle actif : %ls\n", name.ToWString().c_str());
+std::printf("Modèle actif : %s\n", name.ToString().c_str());
 ```
 
 `CREO_CHECK` enveloppe n'importe quel appel ProTOOLKIT retournant un
 `ProError` et lève une `creo::ProToolkitError` en cas d'échec, avec le code
 d'erreur natif accessible via `.code()`.
+
+### Conversions std::string / std::wstring
+
+`Name`, `Line`, `Path` et `ModelName` (tous basés sur `FixedWString<N>`)
+peuvent être lus et construits dans les deux représentations :
+
+```cpp
+creo::Line l1(L"pièce_déformée");     // depuis un littéral wide
+creo::Line l2("pièce_déformée");      // depuis une std::string en UTF-8
+
+std::wstring w = l1.ToWString();      // wide, tel que stocké par ProTOOLKIT
+std::string  s = l1.ToString();       // UTF-8
+```
+
+L'UTF-8 est utilisé comme représentation `std::string` car `wchar_t` n'a
+pas la même taille selon la plateforme (UTF-16 sous Windows, UTF-32 sous
+Linux/macOS) : voir `include/creo/detail/utf8.hpp` pour le détail de la
+conversion, indépendante de toute bibliothèque externe.
 
 ## Contribuer
 
