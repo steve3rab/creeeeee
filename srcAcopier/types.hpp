@@ -1,6 +1,6 @@
 #pragma once
-#include "creo/detail/protoolkit_compat.hpp"
-#include "creo/detail/utf8.hpp"
+#include "protoolkit_compat.hpp"
+#include "utf8.hpp"
 
 #include <cstddef>
 #include <stdexcept>

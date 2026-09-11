@@ -38,7 +38,7 @@
 #include <ProObjects.h>
 #include <ProToolkit.h>
 #else
-#include "creo/detail/protoolkit_shim.hpp"
+#include "protoolkit_shim.hpp"
 #endif
 
 namespace creo::detail {
