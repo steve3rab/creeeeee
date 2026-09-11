@@ -8,9 +8,12 @@
 //     mode SDK réel et en mode shim, donc vous pouvez lancer cet
 //     exécutable directement (`./hello_creo`) même sans Creo installé.
 //
-//  2) main(), partie "session Creo" : récupère le nom du modèle actif.
+//  2) PrintCurrentModelName() : récupère le nom du modèle actif via un
+//     enchaînement de deux appels ProTOOLKIT (ProMdlCurrentGet puis
+//     ProMdlMdlNameGet), le tout dans un seul try/catch — illustre comment
+//     CREO_CHECK court-circuite la suite du bloc dès la première erreur.
 //     Nécessite le SDK réel (CREO_TOOLKIT_ROOT, voir README) pour faire
-//     quoi que ce soit d'utile ; sinon affiche un message explicatif.
+//     quoi que ce soit d'utile ; sinon main() affiche un message explicatif.
 //
 // Note technique : ce fichier n'utilise que std::printf/std::puts (jamais
 // std::wprintf) pour l'affichage. Mélanger des appels "wide" et "narrow"
@@ -67,6 +70,46 @@ void DemonstrateTypes() {
   }
 }
 
+#if CREO_WRAPPER_HAS_REAL_SDK
+// Récupère le nom du modèle actuellement actif dans la session Creo.
+// Retourne false (et affiche le motif) si aucun modèle n'est actif ou si
+// un appel ProTOOLKIT échoue.
+//
+// Montre le fonctionnement de CREO_CHECK sur un enchaînement de deux
+// appels : ProMdlCurrentGet (sortie via pointeur, d'où le `&`) puis
+// ProMdlMdlNameGet (sortie via buffer, donc `.Raw()` sans `&`). Si le
+// premier échoue, le second n'est jamais atteint : l'exception saute
+// directement au catch, sans `if` intermédiaire à écrire soi-même.
+bool PrintCurrentModelName() {
+  try {
+    creo::detail::RawMdl raw_model = nullptr;
+    CREO_CHECK(ProMdlCurrentGet(&raw_model));
+
+    creo::ModelHandle model(raw_model);
+    if (!model) {
+      std::puts("Aucun modèle actif dans la session Creo.");
+      return false;
+    }
+
+    creo::ModelName name;
+    // ProMdlMdlNameGet remplace ProMdlNameGet, désormais dépréciée en Creo 10.
+    CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
+
+    std::printf("Modèle actif : %s\n", name.ToString().c_str());
+    return true;
+
+  } catch (const creo::ProToolkitError &e) {
+    std::printf("Impossible de récupérer le modèle actif : %s\n", e.what());
+
+    // e.code() permet un traitement différencié si besoin, par ex :
+    if (e.code() == static_cast<creo::ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+      std::puts("(aucun modèle n'est actuellement chargé dans Creo)");
+    }
+    return false;
+  }
+}
+#endif
+
 } // namespace
 
 int main() {
@@ -74,20 +117,7 @@ int main() {
 
   std::puts("\n--- Session Creo : nom du modèle actif ---");
 #if CREO_WRAPPER_HAS_REAL_SDK
-  creo::detail::RawMdl raw_model = nullptr;
-  CREO_CHECK(ProMdlCurrentGet(&raw_model));
-
-  creo::ModelHandle model(raw_model);
-  if (!model) {
-    std::puts("Aucun modèle actif dans la session Creo.");
-    return 1;
-  }
-
-  creo::ModelName name;
-  // ProMdlMdlNameGet remplace ProMdlNameGet, désormais dépréciée en Creo 10.
-  CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
-
-  std::printf("Modèle actif : %s\n", name.ToString().c_str());
+  PrintCurrentModelName();
 #else
   std::puts(
       "SDK ProTOOLKIT introuvable : cette partie a été compilée en mode "
