@@ -48,6 +48,10 @@ examples/
   hello_creo.cpp                  Tour des types/erreurs + nom du modèle actif
 cmake/
   FindProToolkit.cmake            Localise le SDK ProTOOLKIT installé
+srcAcopier/
+  (copie de include/creo/ + src/) À glisser tel quel dans un vrai projet
+                                   ProTOOLKIT (SDK + licence disponibles),
+                                   voir srcAcopier/README.md
 ```
 
 ## Compilation
