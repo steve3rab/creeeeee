@@ -284,6 +284,21 @@ using MenuFileName = FixedCharString<detail::kNameSize>;
 using MenuButtonName = FixedCharString<detail::kNameSize>;
 
 // ---------------------------------------------------------------------------
+// ObjectType
+// ---------------------------------------------------------------------------
+// Correspond à `ProType` (struct pro_obj_types, ProObjects.h) : le type
+// d'objet de base de données Creo au sens large — PAS uniquement les
+// modèles. Les modèles (part/assemblage/dessin/manufacturing/...) n'en
+// sont qu'une petite partie, au même titre que les features, courbes,
+// entités de simulation, de maillage, d'animation, etc. Réexposé tel quel
+// (alias direct, pas de wrapper RAII : c'est un simple entier étiqueté).
+//
+// Quelques valeurs "modèle" pour repère : PRO_ASSEMBLY (1), PRO_PART (2),
+// PRO_DRAWING (4), PRO_MFG (37), PRO_SUB_ASSEMBLY (34), PRO_DWGFORM (33),
+// PRO_LAYOUT (19), PRO_REPORT (105), PRO_MARKUP (116), PRO_DIAGRAM (121).
+using ObjectType = detail::RawObjectType;
+
+// ---------------------------------------------------------------------------
 // ModelHandle
 // ---------------------------------------------------------------------------
 // Enveloppe légère et non-propriétaire autour d'un `ProMdl`. Le cycle de vie

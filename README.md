@@ -187,6 +187,31 @@ CREO_CHECK(ProConfigoptSet(option, option_value));
 (`Path` = 260 caractères) et lève `std::length_error` plutôt que de
 tronquer silencieusement une valeur trop longue.
 
+### ObjectType
+
+`creo::ObjectType` correspond à `ProType` (`pro_obj_types`,
+`ProObjects.h`) : le type d'objet de base de données Creo **au sens
+large**, pas seulement les modèles. Les modèles au sens courant
+(part/assemblage/dessin/manufacturing/...) n'en sont qu'une petite
+partie, à côté des features, courbes, entités de simulation, de
+maillage, d'animation, etc. — plusieurs centaines de valeurs au total.
+
+```cpp
+creo::ObjectType t = creo::ObjectType::PRO_PART;
+if (t == creo::ObjectType::PRO_ASSEMBLY) { /* ... */ }
+```
+
+Quelques valeurs "modèle" pour repère : `PRO_ASSEMBLY` (1), `PRO_PART`
+(2), `PRO_DRAWING` (4), `PRO_MFG` (37), `PRO_SUB_ASSEMBLY` (34),
+`PRO_DWGFORM` (33), `PRO_LAYOUT` (19), `PRO_REPORT` (105), `PRO_MARKUP`
+(116), `PRO_DIAGRAM` (121).
+
+Une valeur de l'énum réelle a été omise : `PRO_TYPE_UNUSED` (définie côté
+PTC comme `= PRO_VALUE_UNUSED`), car `PRO_VALUE_UNUSED` n'a pas été
+fournie et sa valeur n'a pas été devinée. Un build avec le SDK réel
+l'obtient normalement via l'en-tête PTC ; seul le mode shim (hors SDK) ne
+la propose pas.
+
 ### Types disponibles (`include/creo/types.hpp`)
 
 Deux familles de buffers texte à taille fixe, selon ce que PTC utilise

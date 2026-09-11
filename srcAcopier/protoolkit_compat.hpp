@@ -10,6 +10,7 @@ namespace creo::detail {
 
 using ProErrorCode = ::ProError;
 using RawMdl = ::ProMdl;
+using RawObjectType = ::ProType;
 
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;

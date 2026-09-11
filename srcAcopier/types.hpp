@@ -153,6 +153,8 @@ using MenuFileName = FixedCharString<detail::kNameSize>;
 
 using MenuButtonName = FixedCharString<detail::kNameSize>;
 
+using ObjectType = detail::RawObjectType;
+
 class ModelHandle {
 public:
   ModelHandle() noexcept : handle_(nullptr) {}

@@ -51,6 +51,7 @@ namespace creo::detail {
 // réutilisés directement).
 using ProErrorCode = ::ProError;
 using RawMdl = ::ProMdl;
+using RawObjectType = ::ProType;
 
 // Tailles "atomiques" (constantes PTC officielles, ProSizeConst.h, Creo 10).
 inline constexpr int kLineSize = PRO_LINE_SIZE;
@@ -78,6 +79,7 @@ inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
 // Alias vers le shim de substitution (voir protoolkit_shim.hpp).
 using ProErrorCode = shim::ProError;
 using RawMdl = shim::ProMdl;
+using RawObjectType = shim::ProType;
 
 inline constexpr int kLineSize = shim::kLineSize;
 inline constexpr int kPathSize = shim::kPathSize;
