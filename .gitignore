@@ -1,0 +1,21 @@
+# Répertoires de build CMake
+build/
+out/
+cmake-build-*/
+
+# Artefacts de compilation
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.exe
+*.pdb
+
+# Fichiers générés par CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
