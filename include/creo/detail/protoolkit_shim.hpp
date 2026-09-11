@@ -6,31 +6,54 @@
 // permet de compiler et de tester la logique du wrapper indépendamment de
 // la présence du SDK PTC.
 //
-// IMPORTANT : ces définitions ne proviennent PAS des en-têtes PTC (SDK
-// propriétaire, non redistribuable). Elles reproduisent seulement la forme
-// documentée des types (tailles de buffer usuelles, nature opaque du
-// handle de modèle) afin que le code appelant compile à l'identique dans
-// les deux modes. Dès qu'un SDK Creo 10 réel est détecté (voir
-// creo/detail/protoolkit_compat.hpp et cmake/FindProToolkit.cmake), ce
-// fichier n'est plus inclus et les vrais en-têtes PTC (ProToolkit.h,
-// ProMdl.h, ProObjects.h, ...) prennent le relais automatiquement.
-//
-// -> Avant toute compilation liée à une vraie session Creo 10, vérifiez ces
-//    tailles contre le ProToolkit.h livré avec votre installation.
+// Les tailles ci-dessous sont les constantes officielles PTC pour Creo
+// Parametric 10.0 (confirmées par l'utilisateur à partir des en-têtes
+// réels) : PRO_LINE_SIZE, PRO_PATH_SIZE, PRO_COMMENT_SIZE, PRO_VALUE_SIZE,
+// PRO_MDLNAME_SIZE, PRO_NAME_SIZE, PRO_TYPE_SIZE, PRO_EXTENSION_SIZE,
+// PRO_MDLEXTENSION_SIZE, PRO_VERSION_SIZE, PRO_MAX_ASSEM_LEVEL et
+// PRO_FEATREF_KEY_SIZE. Le reste de ce fichier ne fait qu'imiter la forme
+// des types (buffers texte, handle opaque) : dès qu'un SDK Creo 10 réel
+// est détecté (voir creo/detail/protoolkit_compat.hpp et
+// cmake/FindProToolkit.cmake), ce fichier n'est plus inclus et les vrais
+// en-têtes PTC prennent le relais automatiquement.
 // -----------------------------------------------------------------------
 
 namespace creo::detail::shim {
 
-// Tailles de buffer telles que documentées par PTC pour ProName / ProLine /
-// ProPath (constantes PRO_NAME_SIZE / PRO_LINE_SIZE / PRO_PATH_SIZE).
-constexpr int kNameSize = 31;
-constexpr int kLineSize = 80;
-constexpr int kPathSize = 130;
+// --- Tailles "atomiques" (valeurs officielles PTC, Creo 10) --------------
+
+constexpr int kLineSize = 81;
+constexpr int kPathSize = 260;
+constexpr int kCommentSize = 256;
+constexpr int kValueSize = 256;
+
+constexpr int kMdlNameSize = 180; // Nom de modèle Creo Parametric (ProMdl).
+constexpr int kNameSize = 32;     // Tout autre nom Creo Parametric.
+constexpr int kTypeSize = 4;      // "prt", "asm", "drw", etc. + terminateur.
+constexpr int kExtensionSize = 4; // 3 caractères + terminateur NULL.
+constexpr int kMdlExtensionSize = 32;
+constexpr int kVersionSize = 4;
+constexpr int kMaxAssemLevel = 25; // Pas une taille de buffer : nombre max
+                                    // de niveaux d'imbrication d'assemblage.
+constexpr int kFeatRefKeySize = 81;
+
+// --- Tailles composites (mêmes formules que les macros PTC) --------------
+
+// "name.ext.#"
+constexpr int kFileMdlNameSize = kMdlNameSize + kMdlExtensionSize + kVersionSize;
+constexpr int kFileNameSize = kNameSize + kExtensionSize + kVersionSize;
+
+constexpr int kFamTabFieldNameSize = kPathSize;
+
+// "instance[generic]"
+constexpr int kFamilyMdlNameSize = kMdlNameSize + kMdlNameSize + 2;
+constexpr int kFamilyNameSize = kNameSize + kNameSize + 2;
 
 // ProTOOLKIT manipule le texte en wchar_t depuis Pro/ENGINEER Wildfire.
 using ProName = wchar_t[kNameSize];
 using ProLine = wchar_t[kLineSize];
 using ProPath = wchar_t[kPathSize];
+using ProMdlName = wchar_t[kMdlNameSize];
 
 // Handle de modèle Creo (ProMdl) : un pointeur opaque, jamais déréférencé
 // par le code appelant. Seul ProTOOLKIT connaît la structure pointée ; on

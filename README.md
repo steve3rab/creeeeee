@@ -10,8 +10,9 @@ taille fixe, codes d'erreur entiers) pour développer des applications qui
 s'intègrent à Creo Parametric. Ce dépôt fournit une couche C++17 au-dessus
 de cette API afin de rendre son usage plus sûr et plus idiomatique :
 
-- des types forts pour les buffers texte ProTOOLKIT (`ProName`, `ProLine`,
-  `ProPath`) avec conversions vérifiées vers/depuis `std::wstring` ;
+- des types forts pour les buffers texte ProTOOLKIT (`ProName`, `ProMdlName`,
+  `ProLine`, `ProPath`, `ProComment`, `ProValue`, ...) avec conversions
+  vérifiées vers/depuis `std::wstring` et `std::string` ;
 - un handle de modèle typé (`ProMdl`) ;
 - des exceptions C++ (`creo::ProToolkitError`) à la place des codes
   `ProError` à vérifier manuellement après chaque appel.
@@ -106,6 +107,40 @@ L'UTF-8 est utilisé comme représentation `std::string` car `wchar_t` n'a
 pas la même taille selon la plateforme (UTF-16 sous Windows, UTF-32 sous
 Linux/macOS) : voir `include/creo/detail/utf8.hpp` pour le détail de la
 conversion, indépendante de toute bibliothèque externe.
+
+### Types disponibles (`include/creo/types.hpp`)
+
+Chaque type ci-dessous est un `FixedWString<N>` de la taille officielle
+PTC pour Creo Parametric 10.0 (voir `detail/protoolkit_compat.hpp` pour le
+détail des constantes `PRO_*_SIZE`) :
+
+| Type C++            | Buffer ProTOOLKIT      | Taille | Usage                                   |
+|----------------------|------------------------|-------:|------------------------------------------|
+| `Name`               | `ProName`              |     32 | Nom générique (feature, paramètre, ...) |
+| `ModelName`          | `ProMdlName`           |    180 | Nom d'un modèle (ProMdlMdlNameGet)       |
+| `Line`               | `ProLine`              |     81 | Ligne de texte (messages)                |
+| `Path`               | `ProPath`               |    260 | Chemin de fichier / répertoire          |
+| `Comment`            | `ProComment`            |    256 | Commentaire                              |
+| `Value`              | `ProValue`              |    256 | Valeur de paramètre (texte)              |
+| `FeatRefKey`         | `ProFeatrefKey`         |     81 | Clé de référence de feature              |
+| `ModelTypeCode`      | (`PRO_TYPE_SIZE`)       |      4 | "prt", "asm", "drw", ...                 |
+| `Extension`          | (`PRO_EXTENSION_SIZE`)  |      4 | Extension de fichier générique           |
+| `ModelExtension`     | (`PRO_MDLEXTENSION_SIZE`)|    32 | Extension de fichier modèle              |
+| `VersionSuffix`      | (`PRO_VERSION_SIZE`)    |      4 | Numéro de version dans un nom de fichier |
+| `FileMdlName`        | `ProFileMdlname`        |    216 | Nom de fichier complet "nom.ext.#"       |
+| `FileName`           | `ProFileName`           |     40 | Idem, cas générique                      |
+| `FamTabFieldName`    | `ProFamtabFieldname`    |    260 | Champ de table de famille                |
+| `FamilyMdlName`      | `ProFamilyMdlname`      |    362 | Instance de table de famille "inst[gen]" |
+| `FamilyName`         | `ProFamilyName`         |     66 | Idem, cas générique                      |
+
+`ModelName` (180) n'est **pas** un alias de `Name` (32) : PTC réserve une
+taille bien plus grande aux noms de modèles qu'aux autres noms Creo — les
+confondre tronquerait silencieusement un nom de modèle trop long pour un
+`Name`.
+
+`MaxAssemLevel` (= 25, `PRO_MAX_ASSEM_LEVEL`) est aussi exposé, mais ce
+n'est pas une taille de buffer : c'est le nombre maximum de niveaux
+d'imbrication d'assemblage pris en charge par ProTOOLKIT.
 
 ## Contribuer
 
