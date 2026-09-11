@@ -21,9 +21,16 @@ namespace creo {
 // que des vérifications de capacité absentes du C brut.
 template <std::size_t N> class FixedWString {
 public:
+  static_assert(N > 0, "FixedWString requiert une capacité non nulle");
+
   // Capacité totale du buffer, terminateur nul inclus (correspond à
   // PRO_NAME_SIZE / PRO_LINE_SIZE / PRO_PATH_SIZE selon le type instancié).
   static constexpr std::size_t kCapacity = N;
+
+  // Longueur maximale utilisable, terminateur nul exclu. C'est cette
+  // valeur, et non kCapacity, qui borne la taille d'une chaîne acceptée
+  // par Assign()/le constructeur — kCapacity inclut le terminateur.
+  static constexpr std::size_t kMaxLength = N - 1;
 
   FixedWString() noexcept { buffer_[0] = L'\0'; }
 
@@ -40,13 +47,14 @@ public:
       : FixedWString(detail::FromUtf8(utf8_text)) {}
 
   void Assign(std::wstring_view text) {
-    if (text.size() >= kCapacity) {
+    if (text.size() > kMaxLength) {
       throw std::length_error(
-          "valeur trop longue pour ce buffer ProTOOLKIT (capacité "
-          "insuffisante)");
+          "valeur trop longue pour ce buffer ProTOOLKIT (" +
+          std::to_string(text.size()) + " caractères, capacité max " +
+          std::to_string(kMaxLength) + ")");
     }
-    for (std::size_t i = 0; i < text.size(); ++i) {
-      buffer_[i] = text[i];
+    if (!text.empty()) {
+      std::char_traits<wchar_t>::copy(buffer_, text.data(), text.size());
     }
     buffer_[text.size()] = L'\0';
   }
@@ -57,13 +65,17 @@ public:
   }
 
   // Longueur effective de la chaîne (hors terminateur), utile après qu'une
-  // fonction ProTOOLKIT a rempli le buffer via Raw().
+  // fonction ProTOOLKIT a rempli le buffer via Raw(). Recherche le
+  // terminateur via char_traits::find (s'appuie sur wmemchr), plus rapide
+  // qu'une boucle manuelle sur les buffers de grande taille (ProPath,
+  // ProComment, ...). Si le buffer n'est pas terminé par un nul dans ses
+  // kCapacity éléments (buffer corrompu ou mal rempli par l'appelant),
+  // retombe sur kCapacity plutôt que de risquer une lecture hors bornes.
   std::size_t Length() const noexcept {
-    std::size_t len = 0;
-    while (len < kCapacity && buffer_[len] != L'\0') {
-      ++len;
-    }
-    return len;
+    const wchar_t *end =
+        std::char_traits<wchar_t>::find(buffer_, kCapacity, L'\0');
+    return end != nullptr ? static_cast<std::size_t>(end - buffer_)
+                           : kCapacity;
   }
 
   // Récupère le contenu du buffer tel quel (wide), typiquement après un
@@ -104,30 +116,32 @@ private:
 // une simple copie suffit.
 template <std::size_t N> class FixedCharString {
 public:
+  static_assert(N > 0, "FixedCharString requiert une capacité non nulle");
+
   static constexpr std::size_t kCapacity = N;
+  static constexpr std::size_t kMaxLength = N - 1;
 
   FixedCharString() noexcept { buffer_[0] = '\0'; }
 
   explicit FixedCharString(std::string_view text) { Assign(text); }
 
   void Assign(std::string_view text) {
-    if (text.size() >= kCapacity) {
+    if (text.size() > kMaxLength) {
       throw std::length_error(
-          "valeur trop longue pour ce buffer ProTOOLKIT (capacité "
-          "insuffisante)");
+          "valeur trop longue pour ce buffer ProTOOLKIT (" +
+          std::to_string(text.size()) + " caractères, capacité max " +
+          std::to_string(kMaxLength) + ")");
     }
-    for (std::size_t i = 0; i < text.size(); ++i) {
-      buffer_[i] = text[i];
+    if (!text.empty()) {
+      std::char_traits<char>::copy(buffer_, text.data(), text.size());
     }
     buffer_[text.size()] = '\0';
   }
 
   std::size_t Length() const noexcept {
-    std::size_t len = 0;
-    while (len < kCapacity && buffer_[len] != '\0') {
-      ++len;
-    }
-    return len;
+    const char *end = std::char_traits<char>::find(buffer_, kCapacity, '\0');
+    return end != nullptr ? static_cast<std::size_t>(end - buffer_)
+                           : kCapacity;
   }
 
   std::string ToString() const { return std::string(buffer_, Length()); }

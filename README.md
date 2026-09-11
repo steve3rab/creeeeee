@@ -133,7 +133,18 @@ std::string  s = l1.ToString();       // UTF-8
 L'UTF-8 est utilisé comme représentation `std::string` car `wchar_t` n'a
 pas la même taille selon la plateforme (UTF-16 sous Windows, UTF-32 sous
 Linux/macOS) : voir `include/creo/detail/utf8.hpp` pour le détail de la
-conversion, indépendante de toute bibliothèque externe.
+conversion, indépendante de toute bibliothèque externe. La conversion
+valide strictement son entrée dans les deux sens (séquences UTF-8
+tronquées/mal formées, encodages surlongs, substituts UTF-16 isolés,
+points de code hors de l'intervalle Unicode) : tout ce qui est invalide
+est remplacé par le caractère de remplacement `U+FFFD` plutôt que d'être
+silencieusement laissé passer ou de faire planter la conversion — utile
+puisque ce texte peut provenir d'un fichier modèle externe.
+
+Chaque type texte expose `kCapacity` (taille totale du buffer, terminateur
+inclus) et `kMaxLength = kCapacity - 1` (nombre de caractères réellement
+stockables). C'est `kMaxLength`, pas `kCapacity`, qui borne la taille
+acceptée par `Assign()`/le constructeur.
 
 ### Fonctions ProTOOLKIT en entrée/sortie (Get / Set)
 

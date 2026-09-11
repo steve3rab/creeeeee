@@ -11,7 +11,10 @@ namespace creo {
 
 template <std::size_t N> class FixedWString {
 public:
+  static_assert(N > 0);
+
   static constexpr std::size_t kCapacity = N;
+  static constexpr std::size_t kMaxLength = N - 1;
 
   FixedWString() noexcept { buffer_[0] = L'\0'; }
 
@@ -21,13 +24,14 @@ public:
       : FixedWString(detail::FromUtf8(utf8_text)) {}
 
   void Assign(std::wstring_view text) {
-    if (text.size() >= kCapacity) {
+    if (text.size() > kMaxLength) {
       throw std::length_error(
-          "valeur trop longue pour ce buffer ProTOOLKIT (capacité "
-          "insuffisante)");
+          "valeur trop longue pour ce buffer ProTOOLKIT (" +
+          std::to_string(text.size()) + " caractères, capacité max " +
+          std::to_string(kMaxLength) + ")");
     }
-    for (std::size_t i = 0; i < text.size(); ++i) {
-      buffer_[i] = text[i];
+    if (!text.empty()) {
+      std::char_traits<wchar_t>::copy(buffer_, text.data(), text.size());
     }
     buffer_[text.size()] = L'\0';
   }
@@ -37,11 +41,10 @@ public:
   }
 
   std::size_t Length() const noexcept {
-    std::size_t len = 0;
-    while (len < kCapacity && buffer_[len] != L'\0') {
-      ++len;
-    }
-    return len;
+    const wchar_t *end =
+        std::char_traits<wchar_t>::find(buffer_, kCapacity, L'\0');
+    return end != nullptr ? static_cast<std::size_t>(end - buffer_)
+                           : kCapacity;
   }
 
   std::wstring ToWString() const { return std::wstring(buffer_, Length()); }
@@ -62,30 +65,32 @@ private:
 
 template <std::size_t N> class FixedCharString {
 public:
+  static_assert(N > 0);
+
   static constexpr std::size_t kCapacity = N;
+  static constexpr std::size_t kMaxLength = N - 1;
 
   FixedCharString() noexcept { buffer_[0] = '\0'; }
 
   explicit FixedCharString(std::string_view text) { Assign(text); }
 
   void Assign(std::string_view text) {
-    if (text.size() >= kCapacity) {
+    if (text.size() > kMaxLength) {
       throw std::length_error(
-          "valeur trop longue pour ce buffer ProTOOLKIT (capacité "
-          "insuffisante)");
+          "valeur trop longue pour ce buffer ProTOOLKIT (" +
+          std::to_string(text.size()) + " caractères, capacité max " +
+          std::to_string(kMaxLength) + ")");
     }
-    for (std::size_t i = 0; i < text.size(); ++i) {
-      buffer_[i] = text[i];
+    if (!text.empty()) {
+      std::char_traits<char>::copy(buffer_, text.data(), text.size());
     }
     buffer_[text.size()] = '\0';
   }
 
   std::size_t Length() const noexcept {
-    std::size_t len = 0;
-    while (len < kCapacity && buffer_[len] != '\0') {
-      ++len;
-    }
-    return len;
+    const char *end = std::char_traits<char>::find(buffer_, kCapacity, '\0');
+    return end != nullptr ? static_cast<std::size_t>(end - buffer_)
+                           : kCapacity;
   }
 
   std::string ToString() const { return std::string(buffer_, Length()); }
