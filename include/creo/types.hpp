@@ -56,7 +56,7 @@ public:
   std::wstring ToWString() const { return std::wstring(buffer_, Length()); }
 
   // Accès au buffer brut, pour passer directement aux fonctions C
-  // ProTOOLKIT, ex : ProMdlNameGet(model, name.Raw());
+  // ProTOOLKIT, ex : ProMdlMdlNameGet(model, name.Raw());
   wchar_t *Raw() noexcept { return buffer_; }
   const wchar_t *Raw() const noexcept { return buffer_; }
 
@@ -74,9 +74,10 @@ private:
 using Name = FixedWString<detail::kNameSize>;
 
 // Alias sémantique pour le cas d'usage "nom de modèle" (ce que renvoie par
-// exemple ProMdlNameGet). Il ne s'agit pas d'un type ProTOOLKIT distinct au
-// sens C — PTC réutilise ProName — mais nommer l'alias explicitement évite
-// toute ambiguïté dans les signatures du wrapper.
+// exemple ProMdlMdlNameGet, qui remplace en Creo 10 l'ancienne fonction
+// ProMdlNameGet désormais dépréciée). Il ne s'agit pas d'un type ProTOOLKIT
+// distinct au sens C — PTC réutilise ProName — mais nommer l'alias
+// explicitement évite toute ambiguïté dans les signatures du wrapper.
 using ModelName = Name;
 
 // Correspond à `ProLine` (taille PRO_LINE_SIZE) : une ligne de texte, telle

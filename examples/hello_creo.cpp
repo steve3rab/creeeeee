@@ -25,7 +25,8 @@ int main() {
   }
 
   creo::ModelName name;
-  CREO_CHECK(ProMdlNameGet(model.Raw(), name.Raw()));
+  // ProMdlMdlNameGet remplace ProMdlNameGet, désormais dépréciée en Creo 10.
+  CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
 
   std::wprintf(L"Modèle actif : %ls\n", name.ToWString().c_str());
 #else

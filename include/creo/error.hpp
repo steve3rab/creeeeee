@@ -48,6 +48,6 @@ inline void ThrowIfError(ErrorCode code, std::string_view context = {}) {
 // transforme automatiquement un échec en creo::ProToolkitError, en
 // capturant l'expression elle-même comme contexte de diagnostic. Usage :
 //
-//   CREO_CHECK(ProMdlNameGet(model.Raw(), name.Raw()));
+//   CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
 //
 #define CREO_CHECK(expr) ::creo::ThrowIfError((expr), #expr)
