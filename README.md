@@ -45,7 +45,7 @@ include/creo/
 src/
   error.cpp
 examples/
-  hello_creo.cpp                  Exemple minimal (nom du modèle actif)
+  hello_creo.cpp                  Tour des types/erreurs + nom du modèle actif
 cmake/
   FindProToolkit.cmake            Localise le SDK ProTOOLKIT installé
 ```
@@ -70,6 +70,18 @@ des chemins recherchés.
 
 ## Utilisation
 
+Voir `examples/hello_creo.cpp` pour un exemple complet et commenté — il
+s'exécute même sans le SDK (mode shim) puisqu'il montre d'abord les types
+et la gestion d'erreurs indépendamment de toute session Creo, avant la
+partie qui nécessite réellement le SDK (récupération du modèle actif) :
+
+```bash
+cmake -S . -B build && cmake --build build
+./build/hello_creo
+```
+
+Extrait de la partie qui nécessite une vraie session Creo :
+
 ```cpp
 #include "creo/error.hpp"
 #include "creo/types.hpp"
@@ -82,9 +94,14 @@ creo::ModelName name;
 // ProMdlMdlNameGet remplace ProMdlNameGet, désormais dépréciée en Creo 10.
 CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
 
-std::wprintf(L"Modèle actif : %ls\n", name.ToWString().c_str());
 std::printf("Modèle actif : %s\n", name.ToString().c_str());
 ```
+
+Note : n'appelez jamais `std::wprintf` et `std::printf` sur `stdout` dans
+le même programme — une fois orienté par le premier appel ("wide" ou
+"narrow"), un flux C a un comportement indéfini si l'autre orientation est
+utilisée ensuite. `ToString()` (UTF-8) suffit pour tout afficher avec
+`printf`, y compris le contenu d'un buffer wide comme `ProName`.
 
 `CREO_CHECK` enveloppe n'importe quel appel ProTOOLKIT retournant un
 `ProError` et lève une `creo::ProToolkitError` en cas d'échec, avec le code
