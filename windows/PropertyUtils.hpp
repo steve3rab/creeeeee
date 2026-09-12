@@ -33,14 +33,15 @@ class PropertyUtils final {
 namespace property_utils_detail {
 
 // UTF-8 <-> wide string conversion, hand-rolled with no external
-// dependency (same algorithm as creo::detail::ToUtf8/FromUtf8,
-// include/creo/detail/utf8.hpp) rather than the Win32 API: kept as a
-// private, self-contained copy since PropertyUtils has no dependency on
-// the ProTOOLKIT wrapper and shouldn't gain one just for this. wchar_t
-// is 2 bytes (UTF-16) on Windows, which is the only platform this class
-// otherwise targets (readEnvironment() below uses the Win32 API), but
-// the conversion below also works correctly for a 4-byte (UTF-32)
-// wchar_t, same as its creo::detail counterpart.
+// dependency rather than the Win32 API: kept as a private,
+// self-contained copy since PropertyUtils has no dependency on the
+// ProTOOLKIT wrapper (creo::detail::ToUtf8/FromUtf8,
+// include/creo/detail/utf8.hpp, itself uses the Win32 API directly --
+// the two are independent implementations, not shared) and shouldn't
+// gain one just for this. wchar_t is 2 bytes (UTF-16) on Windows, which
+// is the only platform this class otherwise targets (readEnvironment()
+// below uses the Win32 API), but the conversion below also works
+// correctly for a 4-byte (UTF-32) wchar_t.
 //
 // Both directions substitute the U+FFFD replacement character for
 // malformed/truncated input rather than throwing.

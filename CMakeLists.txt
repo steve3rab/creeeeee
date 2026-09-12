@@ -4,9 +4,25 @@
 # include/creo/detail/protoolkit_compat.hpp). To link against a real
 # Creo 10 session, set CREO_TOOLKIT_ROOT (and CREO_TOOLKIT_ARCH if
 # needed): see cmake/FindProToolkit.cmake and the README for details.
+#
+# Requires Windows (natively or cross-compiled with MinGW-w64): the
+# final target for this project is Windows only. creo::detail::ToUtf8/
+# FromUtf8 (include/creo/detail/utf8.hpp) call the native Win32 API
+# (WideCharToMultiByte/MultiByteToWideChar) directly, with no portable
+# fallback, so this is no longer a "shim mode covers every OS" situation
+# like the ProTOOLKIT SDK check below.
 
 cmake_minimum_required(VERSION 3.16)
 project(creo_wrapper LANGUAGES CXX)
+
+if(NOT WIN32)
+  message(FATAL_ERROR
+    "This wrapper requires Windows: creo::detail::ToUtf8/FromUtf8 "
+    "(include/creo/detail/utf8.hpp) call the native Win32 API "
+    "(WideCharToMultiByte/MultiByteToWideChar) directly, with no portable "
+    "fallback. Build on Windows, or cross-compile with a MinGW-w64 "
+    "toolchain (CMAKE_TOOLCHAIN_FILE / CMAKE_SYSTEM_NAME=Windows).")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
