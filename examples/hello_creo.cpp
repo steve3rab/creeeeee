@@ -149,17 +149,26 @@ bool PrintCurrentModelName() {
 } // namespace
 
 int main() {
-  DemonstrateTypes();
-  DemonstrateArray();
+  // Filet de sécurité : chaque section a déjà son propre try/catch pour
+  // les erreurs attendues (ProToolkitError, std::out_of_range, ...), mais
+  // une exception vraiment imprévue (ex: std::bad_alloc) ne doit pas
+  // remonter jusqu'à std::terminate() sans message exploitable.
+  try {
+    DemonstrateTypes();
+    DemonstrateArray();
 
-  std::puts("\n--- Session Creo : nom du modèle actif ---");
+    std::puts("\n--- Session Creo : nom du modèle actif ---");
 #if CREO_WRAPPER_HAS_REAL_SDK
-  PrintCurrentModelName();
+    PrintCurrentModelName();
 #else
-  std::puts(
-      "SDK ProTOOLKIT introuvable : cette partie a été compilée en mode "
-      "'shim'. Renseignez CREO_TOOLKIT_ROOT (cf. README) et recompilez "
-      "pour l'exécuter dans une vraie session Creo 10.");
+    std::puts(
+        "SDK ProTOOLKIT introuvable : cette partie a été compilée en mode "
+        "'shim'. Renseignez CREO_TOOLKIT_ROOT (cf. README) et recompilez "
+        "pour l'exécuter dans une vraie session Creo 10.");
 #endif
+  } catch (const std::exception &e) {
+    std::fprintf(stderr, "Erreur inattendue : %s\n", e.what());
+    return 1;
+  }
   return 0;
 }

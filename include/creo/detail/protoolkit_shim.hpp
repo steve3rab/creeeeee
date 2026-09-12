@@ -515,7 +515,7 @@ inline ProError ProArrayMaxCountGet(int obj_size, int *max_num_objs) {
   }
   // Reproduit l'ordre de grandeur documenté par PTC ("environ 2 Mo"), pas
   // une limite réelle du système : purement indicatif en mode shim.
-  *max_num_objs = static_cast<int>((2 * 1024 * 1024) / obj_size);
+  *max_num_objs = (2 * 1024 * 1024) / obj_size;
   return PRO_TK_NO_ERROR;
 }
 
@@ -524,8 +524,9 @@ inline ProError ProArrayAlloc(int n_objs, int obj_size, int reallocation_size,
   if (n_objs < 0 || obj_size <= 0 || p_array == nullptr) {
     return PRO_TK_BAD_INPUTS;
   }
-  std::size_t total =
-      sizeof(ProArrayHeader) + static_cast<std::size_t>(n_objs) * obj_size;
+  auto unsigned_obj_size = static_cast<std::size_t>(obj_size);
+  std::size_t total = sizeof(ProArrayHeader) +
+                       static_cast<std::size_t>(n_objs) * unsigned_obj_size;
   void *mem = std::malloc(total);
   if (mem == nullptr) {
     return PRO_TK_OUT_OF_MEMORY;
@@ -537,7 +538,7 @@ inline ProError ProArrayAlloc(int n_objs, int obj_size, int reallocation_size,
   header->reallocation_size = reallocation_size > 0 ? reallocation_size : 1;
   void *data = static_cast<char *>(mem) + sizeof(ProArrayHeader);
   if (n_objs > 0) {
-    std::memset(data, 0, static_cast<std::size_t>(n_objs) * obj_size);
+    std::memset(data, 0, static_cast<std::size_t>(n_objs) * unsigned_obj_size);
   }
   *p_array = data;
   return PRO_TK_NO_ERROR;
@@ -572,9 +573,9 @@ inline ProError ProArrayEnsureCapacity(ProArray *p_array,
   while (new_capacity < needed_capacity) {
     new_capacity += header->reallocation_size;
   }
-  std::size_t total = sizeof(ProArrayHeader) +
-                       static_cast<std::size_t>(new_capacity) *
-                           header->obj_size;
+  std::size_t total =
+      sizeof(ProArrayHeader) + static_cast<std::size_t>(new_capacity) *
+                                    static_cast<std::size_t>(header->obj_size);
   void *mem = std::realloc(header, total);
   if (mem == nullptr) {
     return PRO_TK_OUT_OF_MEMORY;
@@ -595,11 +596,10 @@ inline ProError ProArraySizeSet(ProArray *p_array, int size) {
   }
   ProArrayHeader *header = ProArrayHeaderOf(*p_array);
   if (size > header->size) {
+    auto obj_size = static_cast<std::size_t>(header->obj_size);
     std::memset(static_cast<char *>(*p_array) +
-                    static_cast<std::size_t>(header->size) * header->obj_size,
-                0,
-                static_cast<std::size_t>(size - header->size) *
-                    header->obj_size);
+                    static_cast<std::size_t>(header->size) * obj_size,
+                0, static_cast<std::size_t>(size - header->size) * obj_size);
   }
   header->size = size;
   return PRO_TK_NO_ERROR;
@@ -625,10 +625,12 @@ inline ProError ProArrayObjectAdd(ProArray *p_array, int index, int n_objects,
   char *base = static_cast<char *>(*p_array);
   std::size_t obj_size = static_cast<std::size_t>(header->obj_size);
   if (insert_at < old_size) {
-    std::memmove(
-        base + (static_cast<std::size_t>(insert_at) + n_objects) * obj_size,
-        base + static_cast<std::size_t>(insert_at) * obj_size,
-        static_cast<std::size_t>(old_size - insert_at) * obj_size);
+    std::memmove(base +
+                     (static_cast<std::size_t>(insert_at) +
+                      static_cast<std::size_t>(n_objects)) *
+                         obj_size,
+                 base + static_cast<std::size_t>(insert_at) * obj_size,
+                 static_cast<std::size_t>(old_size - insert_at) * obj_size);
   }
   if (p_object != nullptr) {
     std::memcpy(base + static_cast<std::size_t>(insert_at) * obj_size,
