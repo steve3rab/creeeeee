@@ -215,23 +215,46 @@ int w = values.At(0);                 // accès vérifié, lève std::out_of_ran
 creo::Array<ProFeature> feats = creo::Array<ProFeature>::Adopt(raw_pro_array);
 ```
 
+**`T` peut être n'importe quel type C++** (`std::string`, une classe avec
+destructeur/membres possédés, ...), pas seulement un type trivialement
+copiable — voir plus bas pourquoi, et pourquoi ça a nécessité une
+implémentation différente de ce qu'un simple appel aux fonctions
+ProTOOLKIT natives aurait donné.
+
 Points importants :
 - **Déplaçable, non copiable** : ProTOOLKIT n'offre pas de primitive de
   duplication ; une copie profonde élément par élément serait coûteuse et
   surprenante à faire passer pour un simple constructeur de copie.
-- **`T` doit être trivialement copiable** (vérifié par `static_assert`) :
-  ProTOOLKIT déplace les éléments par copie mémoire brute
-  (`realloc`/`memmove`), sans jamais appeler de constructeur/destructeur
-  C++ — un type non trivial serait corrompu ou fuirait à la première
-  réallocation.
-- `Insert(index, ...)`/`Append(...)` : PTC documente qu'un `index` négatif
-  déclenche un ajout en fin de tableau (`Array<T>::kAppend = -1`).
+- **Gestion mémoire réellement C++, pas C** : les fonctions natives
+  `ProArrayObjectAdd`/`ProArrayObjectRemove`/`ProArraySizeSet` déplacent
+  les éléments par copie mémoire brute (`memmove`/`realloc` côté C), sans
+  jamais appeler de constructeur/destructeur C++ — sans risque pour un
+  type trivialement copiable, mais qui corromprait un type qui ne l'est
+  pas (`std::string` peut stocker un pointeur interne vers son propre
+  buffer ; le déplacer par `memmove` l'invalide). `Array<T>` n'utilise
+  donc `ProArray` QUE comme fournisseur de mémoire brute
+  (`ProArrayAlloc`/`ProArrayFree`) : toute la gestion du cycle de vie des
+  éléments (construction, destruction, déplacement lors d'une croissance
+  ou d'un décalage) est implémentée en C++ pur — exactement comme
+  `std::vector` au-dessus de son allocateur — avec la garantie forte
+  d'exception sur `Reserve()` (préférant la copie au déplacement quand ce
+  dernier peut lever, via `std::move_if_noexcept`, comme le fait la
+  bibliothèque standard). Résultat : aucune restriction de type visible
+  pour l'utilisateur du wrapper.
+- `Insert(index, ...)` : un `index` négatif équivaut à insérer en fin de
+  tableau (mêmes bornes que `Append`).
+- `Adopt()` reste, lui, spécifiquement réservé à un `T` trivialement
+  copiable (vérifié par `static_assert`) : un `ProArray` construit par
+  ProTOOLKIT lui-même ne peut contenir que des données C, jamais des
+  objets C++ déjà construits.
 
-En mode shim (sans SDK), `ProArray` est réimplémenté fonctionnellement
-(allocation, croissance par blocs, insertion/suppression avec décalage
-mémoire) plutôt que d'être un simple type de substitution : contrairement
-à `ProMdl`/`ProError`, `Array<T>` a un vrai comportement à exercer pour
-être testable sans Creo installé.
+En mode shim (sans SDK), `ProArrayAlloc`/`ProArrayFree` (et
+`ProArraySizeGet`, utilisée par `Adopt()`) sont réimplémentées
+fonctionnellement plutôt que d'être de simples types de substitution :
+contrairement à `ProMdl`/`ProError`, `Array<T>` a un vrai comportement à
+exercer pour être testable sans Creo installé. Le shim reproduit aussi
+`ProArraySizeSet`/`ProArrayObjectAdd`/`ProArrayObjectRemove` par fidélité
+à `ProArray.h`, même si `Array<T>` ne les utilise plus (voir plus haut).
 
 ### ObjectType
 
