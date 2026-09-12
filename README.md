@@ -79,6 +79,10 @@ srcAcopier/
   error.hpp,                      mode, the real SDK is required to
   protoolkit_compat.hpp,          build). Same file split as
   utf8.hpp, error.cpp             include/creo/ above.
+  PropertyUtils.hpp               Flat copy of windows/PropertyUtils.hpp
+                                   (same content, no comments) for
+                                   dropping alongside the rest of this
+                                   bundle into a real project.
 windows/
   PropertyUtils.hpp               Standalone, header-only Win32 utility
                                    (unrelated to ProTOOLKIT/creo::):
