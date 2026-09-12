@@ -1,21 +1,20 @@
 #pragma once
 // -----------------------------------------------------------------------
-// Substituts MINIMAUX pour les types ProTOOLKIT de base, utilisés
-// uniquement quand le SDK Creo réel n'est pas disponible sur la machine de
-// compilation (poste de développement sans Creo installé, CI, etc.). Cela
-// permet de compiler et de tester la logique du wrapper indépendamment de
-// la présence du SDK PTC.
+// MINIMAL substitutes for the base ProTOOLKIT types, used only when the
+// real Creo SDK is not available on the build machine (a development
+// workstation without Creo installed, CI, etc.). This lets the wrapper's
+// logic compile and be tested independently of the PTC SDK's presence.
 //
-// Les tailles ci-dessous sont les constantes officielles PTC pour Creo
-// Parametric 10.0 (confirmées par l'utilisateur à partir des en-têtes
-// réels) : PRO_LINE_SIZE, PRO_PATH_SIZE, PRO_COMMENT_SIZE, PRO_VALUE_SIZE,
-// PRO_MDLNAME_SIZE, PRO_NAME_SIZE, PRO_TYPE_SIZE, PRO_EXTENSION_SIZE,
-// PRO_MDLEXTENSION_SIZE, PRO_VERSION_SIZE, PRO_MAX_ASSEM_LEVEL et
-// PRO_FEATREF_KEY_SIZE. Le reste de ce fichier ne fait qu'imiter la forme
-// des types (buffers texte, handle opaque) : dès qu'un SDK Creo 10 réel
-// est détecté (voir creo/detail/protoolkit_compat.hpp et
-// cmake/FindProToolkit.cmake), ce fichier n'est plus inclus et les vrais
-// en-têtes PTC prennent le relais automatiquement.
+// The sizes below are the official PTC constants for Creo Parametric
+// 10.0 (confirmed by the user from the real headers): PRO_LINE_SIZE,
+// PRO_PATH_SIZE, PRO_COMMENT_SIZE, PRO_VALUE_SIZE, PRO_MDLNAME_SIZE,
+// PRO_NAME_SIZE, PRO_TYPE_SIZE, PRO_EXTENSION_SIZE, PRO_MDLEXTENSION_SIZE,
+// PRO_VERSION_SIZE, PRO_MAX_ASSEM_LEVEL and PRO_FEATREF_KEY_SIZE. The
+// rest of this file only mimics the shape of the types (text buffers,
+// opaque handle): as soon as a real Creo 10 SDK is detected (see
+// creo/detail/protoolkit_compat.hpp and cmake/FindProToolkit.cmake), this
+// file is no longer included and the real PTC headers take over
+// automatically.
 // -----------------------------------------------------------------------
 
 #include <cstddef>
@@ -24,27 +23,27 @@
 
 namespace creo::detail::shim {
 
-// --- Tailles "atomiques" (valeurs officielles PTC, Creo 10) --------------
+// --- "Atomic" sizes (official PTC values, Creo 10) ------------------------
 
 constexpr int kLineSize = 81;
 constexpr int kPathSize = 260;
 constexpr int kCommentSize = 256;
 constexpr int kValueSize = 256;
 
-constexpr int kMdlNameSize = 180; // Nom de modèle Creo Parametric (ProMdl).
-constexpr int kNameSize = 32;     // Tout autre nom Creo Parametric.
-constexpr int kTypeSize = 4;      // "prt", "asm", "drw", etc. + terminateur.
-constexpr int kExtensionSize = 4; // 3 caractères + terminateur NULL.
+constexpr int kMdlNameSize = 180; // Creo Parametric model name (ProMdl).
+constexpr int kNameSize = 32;     // Any other Creo Parametric name.
+constexpr int kTypeSize = 4;      // "prt", "asm", "drw", etc. + terminator.
+constexpr int kExtensionSize = 4; // 3 characters + NULL terminator.
 constexpr int kMdlExtensionSize = 32;
 constexpr int kVersionSize = 4;
-constexpr int kMaxAssemLevel = 25; // Pas une taille de buffer : nombre max
-                                    // de niveaux d'imbrication d'assemblage.
+constexpr int kMaxAssemLevel = 25; // Not a buffer size: max number of
+                                    // assembly nesting levels.
 constexpr int kFeatRefKeySize = 81;
-// PRO_MACRO_SIZE : conservée par PTC pour compatibilité applicative
-// uniquement, ProMacroLoad() n'est plus limitée par cette taille.
+// PRO_MACRO_SIZE: kept by PTC for application compatibility only,
+// ProMacroLoad() is no longer limited by this size.
 constexpr int kMacroSize = 256;
 
-// --- Tailles composites (mêmes formules que les macros PTC) --------------
+// --- Composite sizes (same formulas as the PTC macros) --------------------
 
 // "name.ext.#"
 constexpr int kFileMdlNameSize = kMdlNameSize + kMdlExtensionSize + kVersionSize;
@@ -56,42 +55,41 @@ constexpr int kFamTabFieldNameSize = kPathSize;
 constexpr int kFamilyMdlNameSize = kMdlNameSize + kMdlNameSize + 2;
 constexpr int kFamilyNameSize = kNameSize + kNameSize + 2;
 
-// PRO_VALUE_UNUSED : sentinelle "valeur non utilisée"/"en fin de tableau"
-// employée dans de nombreuses signatures ProTOOLKIT (déjà rencontrée dans
-// ProArray.h : "si index < 0 (PRO_VALUE_UNUSED), ajoute en fin de
-// tableau"). Valeur confirmée par l'utilisateur à partir de l'en-tête réel
-// (`#define PRO_VALUE_UNUSED (-1)`).
+// PRO_VALUE_UNUSED: the "value not used"/"end of array" sentinel used in
+// many ProTOOLKIT signatures (already seen in ProArray.h: "if index < 0
+// (PRO_VALUE_UNUSED), append at the end of the array"). Value confirmed
+// by the user from the real header (`#define PRO_VALUE_UNUSED (-1)`).
 constexpr int kValueUnused = -1;
 
-// PRO_VALUE_DEFAULT : sentinelle "valeur par défaut" (distincte de
-// PRO_VALUE_UNUSED, ne pas confondre les deux malgré des noms proches).
-// Valeur confirmée par l'utilisateur à partir de l'en-tête réel
+// PRO_VALUE_DEFAULT: the "default value" sentinel (distinct from
+// PRO_VALUE_UNUSED, do not confuse the two despite the similar names).
+// Value confirmed by the user from the real header
 // (`#define PRO_VALUE_DEFAULT (-5)`).
 constexpr int kValueDefault = -5;
 
-// Reproduction fidèle de `ProBooleans` (ProToolkit.h) : booléen ProTOOLKIT,
-// distinct du bool C++ bien que ses deux valeurs coïncident numériquement
-// avec false/true — de nombreuses fonctions ProTOOLKIT prennent/renvoient
-// ce type précis (pas un bool C++, qui n'a pas de représentation binaire
-// standardisée en C). Le SDK PTC expose les deux noms ProBoolean/ProBool
-// pour le même type. Voir creo::ToBool()/ToProBoolean() (types.hpp) pour
-// convertir depuis/vers un bool C++ sans écrire de comparaison explicite
-// à chaque appel.
+// Faithful reproduction of `ProBooleans` (ProToolkit.h): the ProTOOLKIT
+// boolean, distinct from C++ bool even though its two values numerically
+// coincide with false/true — many ProTOOLKIT functions take/return
+// precisely this type (not a C++ bool, which has no standardized binary
+// representation in C). The PTC SDK exposes both names ProBoolean/ProBool
+// for the same type. See creo::ToBool()/ToProBoolean() (types.hpp) to
+// convert to/from a C++ bool without writing an explicit comparison on
+// every call.
 enum ProBooleans { PRO_B_FALSE = 0, PRO_B_TRUE = 1 };
 using ProBoolean = ProBooleans;
 using ProBool = ProBooleans;
 
-// Handle de modèle Creo (ProMdl) : un pointeur opaque, jamais déréférencé
-// par le code appelant. Seul ProTOOLKIT connaît la structure pointée ; on
-// se contente ici de préserver la sémantique "pointeur opaque distinct".
+// Creo model handle (ProMdl): an opaque pointer, never dereferenced by
+// calling code. Only ProTOOLKIT knows the structure it points to; this
+// just preserves the "distinct opaque pointer" semantics.
 struct ProMdlOpaque;
 using ProMdl = ProMdlOpaque *;
 
-// Code de retour des fonctions ProTOOLKIT : reproduction fidèle de l'énum
-// `ProError`/`ProErr` officielle (ProError.h, Creo 10 — "most commonly
-// used Creo Parametric TOOLKIT error statuses" selon PTC). Utile en mode
-// shim pour simuler un code d'erreur précis dans des tests, sans avoir le
-// SDK réel installé.
+// ProTOOLKIT function return code: faithful reproduction of the official
+// `ProError`/`ProErr` enum (ProError.h, Creo 10 — "most commonly used
+// Creo Parametric TOOLKIT error statuses" per PTC). Useful in shim mode
+// to simulate a specific error code in tests, without having the real
+// SDK installed.
 enum ProError : int {
   PRO_TK_NO_ERROR = 0,
   PRO_TK_GENERAL_ERROR = -1,
@@ -160,17 +158,17 @@ enum ProError : int {
   PRO_TK_MAX_LIMIT_REACHED = -64,
   PRO_TK_OUT_OF_RANGE = -65,
   PRO_TK_CHECK_LAST_ERROR = -66,
-  // Ajoutée par PTC pour l'absence de licence PTC Mechanical Design I/II.
+  // Added by PTC for a missing PTC Mechanical Design I/II license.
   PRO_TK_NO_PLM_LICENSE = -67,
   PRO_TK_INCOMPLETE_TESS = -68,
   PRO_TK_MULTIBODY_UNSUPPORTED = -69,
   PRO_TK_BROWSER_UNAVAILABLE = -70,
   PRO_TK_DLL_LOAD_ERROR = -71,
 
-  // -72 à -87 : réservés par PTC (non utilisés, pas de trou à combler ici).
+  // -72 to -87: reserved by PTC (unused, no gap to fill here).
 
-  // -88 à -100 : réservés à l'API Creo TOOLKIT elle-même ; une application
-  // ne devrait jamais retourner ces codes.
+  // -88 to -100: reserved for the Creo TOOLKIT API itself; an
+  // application should never return these codes.
   PRO_TK_APP_CREO_BARRED = -88,
   PRO_TK_APP_TOO_OLD = -89,
   PRO_TK_APP_BAD_DATAPATH = -90,
@@ -186,16 +184,15 @@ enum ProError : int {
   PRO_TK_APP_JLINK_NOT_ALLOWED = -100,
 };
 
-// Le SDK PTC expose les deux noms pour le même type.
+// The PTC SDK exposes both names for the same type.
 using ProErr = ProError;
 
-// Reproduit la signature de ProMdlMdlNameGet (successeur de l'ancienne
-// ProMdlNameGet dépréciée), pour que ModelHandle::Name() (types.hpp)
-// compile en mode shim. Sans session Creo réelle, il n'y a rien de
-// sensé à renvoyer : un ModelHandle valide ne peut de toute façon pas
-// exister hors SDK réel (aucune fonction shim ne produit de ProMdl non
-// nul) ; ce stub échoue donc systématiquement plutôt que d'inventer un
-// nom de modèle.
+// Reproduces the signature of ProMdlMdlNameGet (successor of the
+// now-deprecated ProMdlNameGet), so that ModelHandle::Name() (types.hpp)
+// compiles in shim mode. Without a real Creo session, there is nothing
+// meaningful to return: a valid ModelHandle cannot exist outside the
+// real SDK anyway (no shim function ever produces a non-null ProMdl); so
+// this stub always fails rather than inventing a model name.
 inline ProError ProMdlMdlNameGet(ProMdl model, wchar_t *name_out) {
   if (model == nullptr || name_out == nullptr) {
     return PRO_TK_BAD_INPUTS;
@@ -203,17 +200,17 @@ inline ProError ProMdlMdlNameGet(ProMdl model, wchar_t *name_out) {
   return PRO_TK_NOT_IMPLEMENTED;
 }
 
-// Reproduction fidèle de `ProType` (struct pro_obj_types, ProObjects.h,
-// Creo 10) : le type d'objet de base de données Creo au sens large — les
-// modèles (PRO_PART, PRO_ASSEMBLY, PRO_DRAWING, PRO_MFG, ...) n'en sont
-// qu'une petite partie, à côté des features, courbes, entités de
-// simulation/maillage/animation, etc. Fournie par l'utilisateur à partir
-// de l'en-tête réel.
+// Faithful reproduction of `ProType` (struct pro_obj_types,
+// ProObjects.h, Creo 10): the broad Creo database object type — models
+// (PRO_PART, PRO_ASSEMBLY, PRO_DRAWING, PRO_MFG, ...) are only a small
+// part of it, alongside features, curves, simulation/mesh/animation
+// entities, etc. Provided by the user from the real header.
 //
-// PRO_TYPE_UNUSED (= PRO_VALUE_UNUSED dans l'énum réelle) est omise ici :
-// PRO_VALUE_UNUSED n'a pas été fournie et sa valeur ne doit pas être
-// devinée. Un build avec le SDK réel l'obtient normalement via l'en-tête
-// PTC ; en mode shim, ProObjectType::PRO_TYPE_UNUSED n'existe donc pas.
+// PRO_TYPE_UNUSED (= PRO_VALUE_UNUSED in the real enum) is omitted here:
+// PRO_VALUE_UNUSED had not been provided at the time and its value was
+// not to be guessed. A build with the real SDK gets it normally via the
+// PTC header; in shim mode, ProObjectType::PRO_TYPE_UNUSED therefore does
+// not exist.
 enum ProType : int {
   PRO_TYPE_DIR = -5,
   PRO_TYPE_INVALID = -2,
@@ -341,12 +338,12 @@ enum ProType : int {
   PRO_CRV_SIDE2SRF_CNTR = 938,
   PRO_SKETCH_CONSTRAINT = 942,
   PRO_MODEL_BODIES = 974,
-  PRO_UDG = 975, // usage interne
+  PRO_UDG = 975, // internal use
   PRO_CMPST_PLY_DEF = 976,
   PRO_CMPST_PLY_ORDER = 977,
   PRO_CMPST_PLY_PNT = 978,
-  // Les types suivants ne correspondent pas à de vrais objets de la base
-  // de données Pro/E, selon le commentaire PTC d'origine.
+  // The following types do not correspond to real Pro/E database
+  // objects, per PTC's original comment.
   PRO_CONTOUR = 1000,
   PRO_GROUP = 1001,
   PRO_UDF = 1002,
@@ -354,8 +351,8 @@ enum ProType : int {
   PRO_CATIA_PART = 1013,
   PRO_CATIA_PRODUCT = 1014,
   PRO_CATIA_CGR = 1015,
-  PRO_AUTO_GROUP_BODIES = 4540, // usage interne, groupe personnalisé
-  PRO_AUTO_GROUP_QUILTS = 4541, // usage interne, groupe personnalisé
+  PRO_AUTO_GROUP_BODIES = 4540, // internal use, custom group
+  PRO_AUTO_GROUP_QUILTS = 4541, // internal use, custom group
   PRO_PATREL_FIRST_DIR = 10018,
   PRO_PATREL_SECOND_DIR = 10019,
   PRO_JAR_FILE = 10020,
@@ -385,13 +382,13 @@ enum ProType : int {
   PRO_SIMULATION_WELD = 11024,
   PRO_SIMULATION_MATL_ASSIGN = 11025,
   PRO_SIMULATION_MEASURE = 11026,
-  PRO_SIMULATION_RUNNER = 11027, // obsolète
-  PRO_SIMULATION_ENTRANCE_PNT = 11028, // obsolète
+  PRO_SIMULATION_RUNNER = 11027, // obsolete
+  PRO_SIMULATION_ENTRANCE_PNT = 11028, // obsolete
   PRO_SIMULATION_STIFF_COND = 11029,
   PRO_SIMULATION_RIGID_LINK = 11030,
   PRO_SIMULATION_WEIGHT_LINK = 11033,
   PRO_SIMULATION_BOLT = 11035,
-  PRO_SIMULATION_CONT_REGION = 11036, // obsolète
+  PRO_SIMULATION_CONT_REGION = 11036, // obsolete
   PRO_SIMULATION_OBJECT = 11037,
   PRO_SIMULATION_ANALYSIS = 11038,
   PRO_SIMULATION_CRACK = 11039,
@@ -409,8 +406,8 @@ enum ProType : int {
   PRO_SIMULATION_HPE_BUNDLE = 11205,
   PRO_SIMULATION_3D_NOTE = 11206,
   PRO_SIMP_3D_LATTICE_ENT = 11207,
-  PRO_SIMULATION_USER_STUDY = 11208, // usage interne
-  PRO_SIMULATION_LOAD_CASE = 11209, // usage interne
+  PRO_SIMULATION_USER_STUDY = 11208, // internal use
+  PRO_SIMULATION_LOAD_CASE = 11209, // internal use
   PRO_TOPOLOGYOPT_TOPO_REGION = 11501,
   PRO_TOPOLOGYOPT_DESIGN_OBJ = 11502,
   PRO_TOPOLOGYOPT_DESIGN_CONSTR = 11503,
@@ -430,7 +427,7 @@ enum ProType : int {
   PRO_DISPOBJ = 13000,
   PRO_RP_MATERIAL = 17001,
   PRO_RP_FUNCTION = 17002,
-  PRO_RP_MATERIAL_SET = 17003, // usage interne uniquement
+  PRO_RP_MATERIAL_SET = 17003, // internal use only
   PRO_SKETCH_COSMETIC = 20423,
   PRO_SEDGE_PART = 20253,
   PRO_SEDGE_ASSEMBLY = 20255,
@@ -456,7 +453,7 @@ enum ProType : int {
   PRO_MDO_MASSPROP = 70017,
   PRO_MDO_SETTINGS = 70018,
   PRO_MDO_CONN = 70019,
-  PRO_MDO_CONN_AXIS = 70020, // obsolète
+  PRO_MDO_CONN_AXIS = 70020, // obsolete
   PRO_MDO_SLOT_CONN = 70021,
   PRO_MDO_CONN_PARAM = 70022,
   PRO_MDO_LOAD_XFER = 70023,
@@ -488,10 +485,10 @@ enum ProType : int {
   PRO_ANIM_DISPLAY_AT_TIME = 73010,
   PRO_ANIM_TRANS_AT_TIME = 73011,
   PRO_ANIM_COMB = 73012,
-  PRO_ANIM_PI_KFS_INSTANCE = 73013, // obsolète
-  PRO_ANIM_PI_INT_PT = 73014, // obsolète
-  PRO_ANIM_PI_INT_AXIS = 73015, // obsolète
-  PRO_ANIM_PI_INT_PLANE = 73016, // obsolète
+  PRO_ANIM_PI_KFS_INSTANCE = 73013, // obsolete
+  PRO_ANIM_PI_INT_PT = 73014, // obsolete
+  PRO_ANIM_PI_INT_AXIS = 73015, // obsolete
+  PRO_ANIM_PI_INT_PLANE = 73016, // obsolete
   PRO_ANIM_EXPLD_KFS = 73017,
   PRO_ANIM_EXPLD_KFS_INSTANCE = 73018,
   PRO_ANIM_EXPLD_SUB_ANIMATION = 73019,
@@ -505,33 +502,33 @@ enum ProType : int {
   PRO_ANIM_EXPLD_COMB_KFS_INSTANCE = 73027,
   PRO_LOG_CURVE = 74150,
   PRO_LOG_COLLECTION = 74151,
-  PRO_LAYOUT_TAG = 74152, // usage interne
-  PRO_LAYOUT_NODE = 74153, // usage interne
-  PRO_LAYOUT_WP = 74154, // usage interne
-  PRO_DTM_CHK_PNT = 74266, // usage interne
+  PRO_LAYOUT_TAG = 74152, // internal use
+  PRO_LAYOUT_NODE = 74153, // internal use
+  PRO_LAYOUT_WP = 74154, // internal use
+  PRO_DTM_CHK_PNT = 74266, // internal use
   PRO_PSEG_START = 74275,
   PRO_PSEG_END = 74276,
   PRO_QUILT_CONTOUR = 74287,
-  PRO_SENSOR = 74288, // usage interne
+  PRO_SENSOR = 74288, // internal use
   PRO_ECAD_CUT = 74290,
   PRO_RP_MANIKIN_SET = 74345,
   PRO_ASM_LOG_SRF = 74360,
 };
 
 // -----------------------------------------------------------------------
-// ProArray (ProArray.h, Creo 10) : tableau dynamique générique de PTC, un
-// simple `void*` opaque côté API. Contrairement à ProMdl/ProError plus
-// haut (de simples types de substitution, jamais exercés algorithmiquement
-// en mode shim), ProArray a un vrai comportement (allocation, croissance,
-// insertion/suppression) que creo::Array<T> (voir creo/array.hpp) exerce
-// réellement : cette reproduction doit donc être une implémentation
-// fonctionnelle, pas juste une déclaration de forme.
+// ProArray (ProArray.h, Creo 10): PTC's generic dynamic array, a plain
+// opaque `void*` on the API side. Unlike ProMdl/ProError above (simple
+// substitute types, never algorithmically exercised in shim mode),
+// ProArray has real behavior (allocation, growth, insertion/removal)
+// that creo::Array<T> (see creo/array.hpp) actually exercises: this
+// reproduction must therefore be a functional implementation, not just a
+// shape declaration.
 //
-// Implémentation : un en-tête caché juste avant les données (technique
-// classique de "stretchy buffer"), pour que le pointeur ProArray renvoyé
-// à l'appelant pointe directement sur les données — reproduisant le
-// comportement documenté par PTC où un ProArray peut être casté
-// directement en T* pour un accès contigu en lecture.
+// Implementation: a hidden header right before the data (the classic
+// "stretchy buffer" technique), so that the ProArray pointer handed back
+// to the caller points directly at the data — reproducing the documented
+// PTC behavior where a ProArray can be cast directly to T* for
+// contiguous read access.
 // -----------------------------------------------------------------------
 
 using ProArray = void *;
@@ -552,8 +549,8 @@ inline ProError ProArrayMaxCountGet(int obj_size, int *max_num_objs) {
   if (obj_size <= 0 || max_num_objs == nullptr) {
     return PRO_TK_BAD_INPUTS;
   }
-  // Reproduit l'ordre de grandeur documenté par PTC ("environ 2 Mo"), pas
-  // une limite réelle du système : purement indicatif en mode shim.
+  // Reproduces the order of magnitude documented by PTC ("about 2 MB"),
+  // not a real system limit: purely indicative in shim mode.
   *max_num_objs = (2 * 1024 * 1024) / obj_size;
   return PRO_TK_NO_ERROR;
 }
@@ -660,7 +657,7 @@ inline ProError ProArrayObjectAdd(ProArray *p_array, int index, int n_objects,
   if (err != PRO_TK_NO_ERROR) {
     return err;
   }
-  header = ProArrayHeaderOf(*p_array); // le realloc a pu déplacer le bloc.
+  header = ProArrayHeaderOf(*p_array); // realloc may have moved the block.
   char *base = static_cast<char *>(*p_array);
   std::size_t obj_size = static_cast<std::size_t>(header->obj_size);
   if (insert_at < old_size) {

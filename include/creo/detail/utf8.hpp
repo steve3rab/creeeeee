@@ -1,24 +1,23 @@
 #pragma once
 // -----------------------------------------------------------------------
-// Conversion UTF-8 <-> wide string, sans dépendance externe.
+// UTF-8 <-> wide string conversion, with no external dependency.
 //
-// ProTOOLKIT manipule le texte en wchar_t, mais la taille (et donc
-// l'encodage implicite) de wchar_t diffère selon la plateforme :
-//   - 2 octets, UTF-16 (avec paires de substituts) sous Windows ;
-//   - 4 octets, UTF-32 (un wchar_t = un point de code) sous Linux/macOS.
+// ProTOOLKIT manipulates text as wchar_t, but the size (and therefore the
+// implicit encoding) of wchar_t differs by platform:
+//   - 2 bytes, UTF-16 (with surrogate pairs) on Windows;
+//   - 4 bytes, UTF-32 (one wchar_t = one code point) on Linux/macOS.
 //
-// `std::wstring_convert`/`codecvt_utf8<wchar_t>` ne gère correctement que
-// le second cas et est de toute façon dépréciée depuis C++17 : ces
-// fonctions font la conversion à la main, correctement dans les deux cas,
-// pour offrir une représentation std::string (UTF-8) stable quelle que
-// soit la plateforme de compilation.
+// `std::wstring_convert`/`codecvt_utf8<wchar_t>` only handles the second
+// case correctly and is deprecated since C++17 anyway: these functions do
+// the conversion by hand, correctly in both cases, to offer a stable
+// std::string (UTF-8) representation regardless of the build platform.
 //
-// Les deux directions valident strictement leur entrée (séquences UTF-8
-// tronquées/mal formées, surrogates UTF-16 isolés, points de code hors de
-// l'intervalle Unicode valide) et substituent le caractère de remplacement
-// U+FFFD plutôt que de tronquer ou de laisser passer une séquence
-// invalide : le texte manipulé ici peut provenir d'un fichier modèle
-// externe, il n'y a pas de raison de lui faire confiance par défaut.
+// Both directions strictly validate their input (truncated/malformed
+// UTF-8 sequences, isolated UTF-16 surrogates, code points outside the
+// valid Unicode range) and substitute the U+FFFD replacement character
+// rather than truncating or letting an invalid sequence through: the text
+// handled here may come from an external model file, so there is no
+// reason to trust it by default.
 // -----------------------------------------------------------------------
 
 #include <cstdint>
@@ -48,9 +47,9 @@ inline void AppendUtf8(std::string &out, std::uint32_t codepoint) {
   }
 }
 
-// Ajoute un point de code à une chaîne wide, en le découpant en paire de
-// substituts UTF-16 si nécessaire (wchar_t 2 octets). Centralise cette
-// logique pour FromUtf8() (chemin normal et substitution U+FFFD).
+// Appends a code point to a wide string, splitting it into a UTF-16
+// surrogate pair if needed (2-byte wchar_t). Centralizes this logic for
+// FromUtf8() (both the normal path and the U+FFFD substitution).
 inline void AppendWide(std::wstring &out, std::uint32_t codepoint) {
   if constexpr (sizeof(wchar_t) == 2) {
     if (codepoint > 0xFFFF) {
@@ -63,19 +62,19 @@ inline void AppendWide(std::wstring &out, std::uint32_t codepoint) {
   out.push_back(static_cast<wchar_t>(codepoint));
 }
 
-// Encode une chaîne wide (telle que renvoyée par un buffer ProTOOLKIT
-// ProName/ProLine/ProPath) en UTF-8. `reserve` majore la taille de sortie
-// au pire cas (4 octets UTF-8 par unité wide) pour éviter toute
-// réallocation en cours de conversion.
+// Encodes a wide string (as returned by a ProTOOLKIT ProName/ProLine/
+// ProPath buffer) to UTF-8. `reserve` sizes the output for the worst case
+// (4 UTF-8 bytes per wide unit) to avoid any reallocation during the
+// conversion.
 inline std::string ToUtf8(std::wstring_view text) {
   std::string out;
   out.reserve(text.size() * 4);
 
   if constexpr (sizeof(wchar_t) == 2) {
-    // wchar_t = unité UTF-16 : recombiner les paires de substituts, et
-    // remplacer par U+FFFD tout substitut isolé (haut sans bas suivant,
-    // ou bas sans haut précédent) plutôt que de produire de l'UTF-8
-    // invalide représentant directement un point de code de substitution.
+    // wchar_t = UTF-16 unit: recombine surrogate pairs, and replace any
+    // isolated surrogate (a high one with no following low one, or a low
+    // one with no preceding high one) with U+FFFD rather than producing
+    // invalid UTF-8 that directly encodes a surrogate code point.
     for (std::size_t i = 0; i < text.size(); ++i) {
       std::uint32_t unit = static_cast<std::uint16_t>(text[i]);
       if (unit >= 0xD800 && unit <= 0xDBFF && i + 1 < text.size()) {
@@ -93,7 +92,7 @@ inline std::string ToUtf8(std::wstring_view text) {
       }
     }
   } else {
-    // wchar_t = point de code direct (UTF-32).
+    // wchar_t = direct code point (UTF-32).
     for (wchar_t ch : text) {
       auto codepoint = static_cast<std::uint32_t>(ch);
       if (codepoint > kUnicodeMaxCodepoint ||
@@ -107,13 +106,12 @@ inline std::string ToUtf8(std::wstring_view text) {
   return out;
 }
 
-// Décode une chaîne UTF-8 en wide string, pour construire un buffer
-// ProTOOLKIT (ProName/ProLine/ProPath) à partir d'un std::string. Rejette
-// (remplace par U+FFFD) les séquences tronquées, les octets de
-// continuation invalides, les encodages surlongs (ex : un octet ASCII
-// réencodé sur 2 octets) et les points de code hors de l'intervalle
-// Unicode valide ou dans la plage réservée aux substituts UTF-16 : une
-// séquence UTF-8 ne doit jamais encoder directement 0xD800-0xDFFF.
+// Decodes a UTF-8 string to a wide string, to build a ProTOOLKIT buffer
+// (ProName/ProLine/ProPath) from a std::string. Rejects (replaces with
+// U+FFFD) truncated sequences, invalid continuation bytes, overlong
+// encodings (e.g. an ASCII byte re-encoded on 2 bytes), and code points
+// outside the valid Unicode range or in the range reserved for UTF-16
+// surrogates: a UTF-8 sequence must never directly encode 0xD800-0xDFFF.
 inline std::wstring FromUtf8(std::string_view text) {
   std::wstring out;
   out.reserve(text.size());

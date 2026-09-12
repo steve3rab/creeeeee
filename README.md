@@ -1,94 +1,94 @@
 # creeeeee
 
-Wrapper C++17 pour **ProTOOLKIT**, l'API C de PTC pour Creo Parametric.
-Ciblé sur **Creo Parametric 10.0**.
+C++17 wrapper for **ProTOOLKIT**, PTC's C API for Creo Parametric.
+Targets **Creo Parametric 10.0**.
 
-## À propos
+## About
 
-ProTOOLKIT expose une API C bas niveau (handles opaques, buffers de texte à
-taille fixe, codes d'erreur entiers) pour développer des applications qui
-s'intègrent à Creo Parametric. Ce dépôt fournit une couche C++17 au-dessus
-de cette API afin de rendre son usage plus sûr et plus idiomatique :
+ProTOOLKIT exposes a low-level C API (opaque handles, fixed-size text
+buffers, integer error codes) for building applications that integrate
+with Creo Parametric. This repository provides a C++17 layer on top of
+that API to make it safer and more idiomatic to use:
 
-- des types forts pour les buffers texte ProTOOLKIT (`ProName`, `ProMdlName`,
-  `ProLine`, `ProPath`, `ProComment`, `ProValue`, ...) avec conversions
-  vérifiées vers/depuis `std::wstring` et `std::string` ;
-- un handle de modèle typé (`ProMdl`) ;
-- des exceptions C++ (`creo::ProToolkitError`) à la place des codes
-  `ProError` à vérifier manuellement après chaque appel.
+- strong types for ProTOOLKIT text buffers (`ProName`, `ProMdlName`,
+  `ProLine`, `ProPath`, `ProComment`, `ProValue`, ...) with checked
+  conversions to/from `std::wstring` and `std::string`;
+- a typed model handle (`ProMdl`);
+- C++ exceptions (`creo::ProToolkitError`) instead of `ProError` codes to
+  check manually after every call.
 
-Le projet démarre par ces briques de base (types + gestion d'erreurs) ;
-d'autres wrappers (features, paramètres, géométrie, UI...) viendront s'y
-ajouter au fur et à mesure.
+The project starts with these base building blocks (types + error
+handling); more wrappers (features, parameters, geometry, UI...) will be
+added over time.
 
-### Prérequis importants
+### Important prerequisites
 
-Le SDK ProTOOLKIT est **propriétaire** (livré par PTC avec Creo) et n'est
-pas inclus dans ce dépôt. Pour compiler avec la vraie API Creo, il vous
-faut une installation de Creo Parametric 10.0 disposant du SDK ProTOOLKIT.
+The ProTOOLKIT SDK is **proprietary** (shipped by PTC with Creo) and is
+not included in this repository. To build against the real Creo API, you
+need a Creo Parametric 10.0 installation with the ProTOOLKIT SDK.
 
-Sans ce SDK, le projet compile quand même : `include/creo/detail/` bascule
-automatiquement sur un mode « shim » (types de substitution, cf.
-commentaires dans `protoolkit_compat.hpp` et `protoolkit_shim.hpp`) qui
-permet de développer et de tester la logique du wrapper hors poste Creo.
-Un exécutable compilé dans ce mode ne peut évidemment pas piloter une
-session Creo réelle.
+Without this SDK, the project still builds: `include/creo/detail/`
+automatically falls back to a "shim" mode (substitute types, see the
+comments in `protoolkit_compat.hpp` and `protoolkit_shim.hpp`) which lets
+you develop and test the wrapper's logic away from a Creo workstation. An
+executable built in this mode obviously cannot drive a real Creo session.
 
-## Structure du dépôt
+## Repository layout
 
 ```
 include/creo/
-  types.hpp                       Types de base : Name, Line, Path, ModelHandle
-  array.hpp                       Array<T> : RAII autour de ProArray
-  error.hpp                       ProToolkitError + macro CREO_CHECK
-  detail/protoolkit_compat.hpp    Bascule SDK réel / shim
-  detail/protoolkit_shim.hpp      Types de substitution (sans SDK)
+  types.hpp                       Base types: Name, Line, Path, ModelHandle
+  array.hpp                       Array<T>: RAII around ProArray
+  error.hpp                       ProToolkitError + CREO_CHECK macro
+  detail/protoolkit_compat.hpp    Real SDK / shim switch
+  detail/protoolkit_shim.hpp      Substitute types (no SDK)
 src/
   error.cpp
 examples/
-  hello_creo.cpp                  Tour des types/erreurs/Array + nom du modèle actif
+  hello_creo.cpp                  Tour of types/errors/Array + active model name
 cmake/
-  FindProToolkit.cmake            Localise le SDK ProTOOLKIT installé
+  FindProToolkit.cmake            Locates the installed ProTOOLKIT SDK
 srcAcopier/
-  types.hpp, array.hpp,           Version à plat (aucun sous-dossier, pas
-  error.hpp,                      de commentaires) pour un vrai projet
-  protoolkit_compat.hpp,          ProTOOLKIT (SDK + licence disponibles) :
-  utf8.hpp, error.cpp             CREO_WRAPPER_HAS_REAL_SDK y est figé à 1
-                                   (pas de mode shim, le SDK réel est
-                                   requis à la compilation).
+  types.hpp, array.hpp,           Flat version (no subfolders, no
+  error.hpp,                      comments) to drop into a real
+  protoolkit_compat.hpp,          ProTOOLKIT project (SDK + license
+  utf8.hpp, error.cpp             available): CREO_WRAPPER_HAS_REAL_SDK
+                                   is hardcoded to 1 there (no shim
+                                   mode, the real SDK is required to
+                                   build).
 ```
 
-## Compilation
+## Building
 
 ```bash
-# Sans le SDK Creo (mode shim, pour développer/tester le wrapper) :
+# Without the Creo SDK (shim mode, for developing/testing the wrapper):
 cmake -S . -B build
 cmake --build build
 
-# Avec le SDK Creo 10 (pour un build utilisable dans une session Creo) :
+# With the Creo 10 SDK (for a build usable in a Creo session):
 cmake -S . -B build \
-  -DCREO_TOOLKIT_ROOT="/chemin/vers/Creo 10.0.0.0/Common Files" \
-  -DCREO_TOOLKIT_ARCH=<nom_du_dossier_arch_du_sdk>
+  -DCREO_TOOLKIT_ROOT="/path/to/Creo 10.0.0.0/Common Files" \
+  -DCREO_TOOLKIT_ARCH=<sdk_arch_folder_name>
 cmake --build build
 ```
 
-`CREO_TOOLKIT_ROOT` et `CREO_TOOLKIT_ARCH` peuvent aussi être fournis en
-variables d'environnement. Voir `cmake/FindProToolkit.cmake` pour le détail
-des chemins recherchés.
+`CREO_TOOLKIT_ROOT` and `CREO_TOOLKIT_ARCH` can also be supplied as
+environment variables. See `cmake/FindProToolkit.cmake` for the paths it
+searches.
 
-## Utilisation
+## Usage
 
-Voir `examples/hello_creo.cpp` pour un exemple complet et commenté — il
-s'exécute même sans le SDK (mode shim) puisqu'il montre d'abord les types
-et la gestion d'erreurs indépendamment de toute session Creo, avant la
-partie qui nécessite réellement le SDK (récupération du modèle actif) :
+See `examples/hello_creo.cpp` for a complete, commented example — it runs
+even without the SDK (shim mode) since it first shows the types and error
+handling independently of any Creo session, before the part that actually
+requires the SDK (retrieving the active model):
 
 ```bash
 cmake -S . -B build && cmake --build build
 ./build/hello_creo
 ```
 
-Extrait de la partie qui nécessite une vraie session Creo :
+Excerpt of the part that requires a real Creo session:
 
 ```cpp
 #include "creo/error.hpp"
@@ -98,356 +98,349 @@ creo::detail::RawMdl raw_model = nullptr;
 CREO_CHECK(ProMdlCurrentGet(&raw_model));
 
 creo::ModelHandle model(raw_model);
-// model.Name() enveloppe CREO_CHECK + ProMdlMdlNameGet (qui remplace
-// ProMdlNameGet, désormais dépréciée en Creo 10) et lève std::logic_error
-// si le handle est invalide, sans même tenter l'appel ProTOOLKIT.
+// model.Name() wraps CREO_CHECK + ProMdlMdlNameGet (which replaces
+// ProMdlNameGet, now deprecated in Creo 10) and throws std::logic_error
+// if the handle is invalid, without even attempting the ProTOOLKIT call.
 creo::ModelName name = model.Name();
 
-std::printf("Modèle actif : %s\n", name.ToString().c_str());
+std::printf("Active model: %s\n", name.ToString().c_str());
 ```
 
-Note : n'appelez jamais `std::wprintf` et `std::printf` sur `stdout` dans
-le même programme — une fois orienté par le premier appel ("wide" ou
-"narrow"), un flux C a un comportement indéfini si l'autre orientation est
-utilisée ensuite. `ToString()` (UTF-8) suffit pour tout afficher avec
-`printf`, y compris le contenu d'un buffer wide comme `ProName`.
+Note: never call both `std::wprintf` and `std::printf` on `stdout` in the
+same program — once a C stream is oriented by the first call ("wide" or
+"narrow"), using the other orientation afterward is undefined behavior.
+`ToString()` (UTF-8) is enough to print everything with `printf`,
+including the content of a wide buffer like `ProName`.
 
-`CREO_CHECK` enveloppe n'importe quel appel ProTOOLKIT retournant un
-`ProError` et lève une `creo::ProToolkitError` en cas d'échec, avec le code
-d'erreur natif accessible via `.code()`. Le message de l'exception inclut
-le libellé symbolique du code (`creo::ToString`), qui couvre l'intégralité
-de l'énum `ProError`/`ProErr` officielle de Creo 10 (`PRO_TK_BAD_INPUTS`,
-`PRO_TK_NO_LICENSE`, ...) — pas seulement le numéro brut.
+`CREO_CHECK` wraps any ProTOOLKIT call returning a `ProError` and throws
+a `creo::ProToolkitError` on failure, with the native error code
+accessible via `.code()`. The exception's message includes the code's
+symbolic label (`creo::ToString`), which covers the entire official
+Creo 10 `ProError`/`ProErr` enum (`PRO_TK_BAD_INPUTS`, `PRO_TK_NO_LICENSE`,
+...) — not just the raw number.
 
-### Conversions std::string / std::wstring
+### std::string / std::wstring conversions
 
-`Name`, `Line`, `Path` et `ModelName` (tous basés sur `FixedWString<N>`)
-peuvent être lus et construits dans les deux représentations :
+`Name`, `Line`, `Path` and `ModelName` (all based on `FixedWString<N>`)
+can be read from and constructed from both representations:
 
 ```cpp
-creo::Line l1(L"pièce_déformée");     // depuis un littéral wide
-creo::Line l2("pièce_déformée");      // depuis une std::string en UTF-8
+creo::Line l1(L"deformed_part");     // from a wide literal
+creo::Line l2("deformed_part");      // from a UTF-8 std::string
 
-std::wstring w = l1.ToWString();      // wide, tel que stocké par ProTOOLKIT
-std::string  s = l1.ToString();       // UTF-8
+std::wstring w = l1.ToWString();     // wide, as stored by ProTOOLKIT
+std::string  s = l1.ToString();      // UTF-8
 ```
 
-L'UTF-8 est utilisé comme représentation `std::string` car `wchar_t` n'a
-pas la même taille selon la plateforme (UTF-16 sous Windows, UTF-32 sous
-Linux/macOS) : voir `include/creo/detail/utf8.hpp` pour le détail de la
-conversion, indépendante de toute bibliothèque externe. La conversion
-valide strictement son entrée dans les deux sens (séquences UTF-8
-tronquées/mal formées, encodages surlongs, substituts UTF-16 isolés,
-points de code hors de l'intervalle Unicode) : tout ce qui est invalide
-est remplacé par le caractère de remplacement `U+FFFD` plutôt que d'être
-silencieusement laissé passer ou de faire planter la conversion — utile
-puisque ce texte peut provenir d'un fichier modèle externe.
+UTF-8 is used as the `std::string` representation because `wchar_t` is
+not the same size across platforms (UTF-16 on Windows, UTF-32 on
+Linux/macOS): see `include/creo/detail/utf8.hpp` for the conversion
+details, with no external library dependency. The conversion strictly
+validates its input in both directions (truncated/malformed UTF-8
+sequences, overlong encodings, isolated UTF-16 surrogates, code points
+outside the Unicode range): anything invalid is replaced with the
+`U+FFFD` replacement character rather than being silently let through or
+crashing the conversion — useful since this text may come from an
+external model file.
 
-Chaque type texte expose `kCapacity` (taille totale du buffer, terminateur
-inclus) et `kMaxLength = kCapacity - 1` (nombre de caractères réellement
-stockables). C'est `kMaxLength`, pas `kCapacity`, qui borne la taille
-acceptée par `Assign()`/le constructeur.
+Every text type exposes `kCapacity` (the buffer's total size, including
+the terminator) and `kMaxLength = kCapacity - 1` (the number of
+characters that can actually be stored). It is `kMaxLength`, not
+`kCapacity`, that bounds the size accepted by `Assign()`/the constructor.
 
-### Fonctions ProTOOLKIT en entrée/sortie (Get / Set)
+### ProTOOLKIT input/output functions (Get / Set)
 
-Beaucoup de fonctions ProTOOLKIT partagent la même forme en C —
-`ProError Xxx(ProName option, ProPath option_value)` — que le buffer serve
-d'entrée (`...Set`) ou de sortie (`...Get`) ; rien dans le type ne le dit,
-c'est une convention documentaire PTC. Le wrapper s'utilise identiquement
-dans les deux cas, seule la façon de construire l'objet change :
+Many ProTOOLKIT functions share the same C shape —
+`ProError Xxx(ProName option, ProPath option_value)` — whether the buffer
+is used as input (`...Set`) or output (`...Get`); nothing in the type
+says which, it is a PTC documentation convention. The wrapper is used the
+same way in both cases, only the way the object is constructed changes:
 
 ```cpp
 #include "creo/error.hpp"
 #include "creo/types.hpp"
 
-// --- Set : le buffer est déjà rempli avant l'appel (entrée) ---
+// --- Set: the buffer is already filled before the call (input) ---
 creo::Name option("pro_line_font");
 creo::Path option_value("solid");
 CREO_CHECK(ProConfigoptSet(option, option_value));
 
-// --- Get : le buffer est vide avant l'appel, rempli par ProTOOLKIT (sortie) ---
+// --- Get: the buffer is empty before the call, filled by ProTOOLKIT (output) ---
 creo::Name option2("pro_line_font");
-creo::Path option_value2;                    // vide, à remplir
+creo::Path option_value2;                    // empty, to be filled
 CREO_CHECK(ProConfigoptionGet(option2, option_value2));
 
-std::string value = option_value2.ToString(); // ou .ToWString()
+std::string value = option_value2.ToString(); // or .ToWString()
 ```
 
-Et pour repartir d'un `std::string`/`std::wstring` vers un `ProPath` (par
-exemple pour un nouvel appel `...Set` avec une valeur calculée) :
+And to go from a `std::string`/`std::wstring` back to a `ProPath` (for
+example for a new `...Set` call with a computed value):
 
 ```cpp
 std::string new_value = "hidden";
 
-creo::Path p1(new_value);        // construit un nouveau Path
-option_value.Assign(new_value);  // ou réutilise un Path existant
+creo::Path p1(new_value);        // builds a new Path
+option_value.Assign(new_value);  // or reuses an existing Path
 
 CREO_CHECK(ProConfigoptSet(option, option_value));
 ```
 
-`Assign()` (comme le constructeur) vérifie la capacité du buffer visé
-(`Path` = 260 caractères) et lève `std::length_error` plutôt que de
-tronquer silencieusement une valeur trop longue.
+`Assign()` (like the constructor) checks the target buffer's capacity
+(`Path` = 260 characters) and throws `std::length_error` rather than
+silently truncating an overly long value.
 
-### Comparaisons, `View()` et interopérabilité
+### Comparisons, `View()` and interoperability
 
-Tous les types texte (`Name`, `Line`, `Path`, `ModelName`, `CharName`, ...)
-sont comparables directement, entre eux comme contre une chaîne C++ :
+All text types (`Name`, `Line`, `Path`, `ModelName`, `CharName`, ...) are
+directly comparable, both to each other and against a C++ string:
 
 ```cpp
-creo::Name a(L"engrenage_01");
-creo::ModelName b(L"engrenage_01");   // capacité différente, comparaison OK
+creo::Name a(L"gear_01");
+creo::ModelName b(L"gear_01");   // different capacity, comparison OK
 
 if (a == b) { /* ... */ }
-if (a == L"engrenage_01") { /* ... */ }             // littéral wide
-if (a == std::wstring_view(L"engrenage_01")) { }    // wstring_view / wstring
+if (a == L"gear_01") { /* ... */ }                  // wide literal
+if (a == std::wstring_view(L"gear_01")) { }         // wstring_view / wstring
 
 creo::CharName cn("MENU_A");
-if (cn == "MENU_A") { /* ... */ }                   // littéral char
+if (cn == "MENU_A") { /* ... */ }                   // char literal
 ```
 
-Ces opérateurs comparent le **contenu** (via `View()`, ci-dessous), jamais
-l'adresse du buffer — un point qui mérite d'être explicite : chaque type
-expose aussi un `operator wchar_t*()`/`operator char*()` implicite,
-nécessaire pour l'interop directe avec les fonctions C ProTOOLKIT
-(`ProConfigoptSet(option, option_value)`). Sans une surcharge dédiée
-`const wchar_t*`/`const char*` en plus de celles en `wstring_view`/
-`string_view`, comparer contre un littéral serait ambigu pour le
-compilateur (deux conversions implicites de même rang : vers pointeur, ou
-vers vue) ; ces surcharges existent précisément pour lever cette ambiguïté
-en faveur de la comparaison par contenu.
+These operators compare **content** (via `View()`, below), never the
+buffer's address — a point worth making explicit: every type also
+exposes an implicit `operator wchar_t*()`/`operator char*()`, needed for
+direct interop with ProTOOLKIT C functions
+(`ProConfigoptSet(option, option_value)`). Without a dedicated
+`const wchar_t*`/`const char*` overload in addition to the
+`wstring_view`/`string_view` ones, comparing against a literal would be
+ambiguous for the compiler (two implicit conversions of the same rank:
+to a pointer, or to a view); these overloads exist precisely to resolve
+that ambiguity in favor of the content-based comparison.
 
-`View()` renvoie un `std::wstring_view`/`std::string_view` sur le buffer
-sans copie (contrairement à `ToWString()`/`ToString()`, qui en allouent une
-nouvelle à chaque appel) :
+`View()` returns a `std::wstring_view`/`std::string_view` over the buffer
+with no copy (unlike `ToWString()`/`ToString()`, which allocate a new one
+on every call):
 
 ```cpp
 std::wstring_view v = path.View();
 if (v.substr(v.size() - 4) == L".prt") { /* ... */ }
 ```
 
-(`std::wstring_view::ends_with` est du C++20 ; ce wrapper cible le C++17.)
+(`std::wstring_view::ends_with` is C++20; this wrapper targets C++17.)
 
-`Path` s'interface aussi avec `std::filesystem::path` :
+`Path` also interfaces with `std::filesystem::path`:
 
 ```cpp
 #include "creo/types.hpp"
 
 std::filesystem::path fs = creo::ToFilesystemPath(path);
-creo::Path p = creo::PathFromFilesystem(fs / "sous_dossier" / "piece.prt");
+creo::Path p = creo::PathFromFilesystem(fs / "subdirectory" / "part.prt");
 ```
 
-`creo::ValueUnused` correspond à `PRO_VALUE_UNUSED` (= -1), la sentinelle
-"valeur/index non utilisé" acceptée par de nombreuses fonctions ProTOOLKIT
-(par ex. tout index négatif passé à `ProArrayObjectAdd` ajoute en fin de
-tableau — `ValueUnused` en est un exemple, pas la seule valeur qui
-déclenche ce comportement). `creo::ValueDefault` correspond à
-`PRO_VALUE_DEFAULT` (= -5), la sentinelle "valeur par défaut" — distincte
-de `PRO_VALUE_UNUSED` malgré la proximité des noms, à ne pas confondre
-dans un appel ProTOOLKIT. En mode SDK réel, les deux reprennent
-directement les macros PTC.
+`creo::ValueUnused` corresponds to `PRO_VALUE_UNUSED` (= -1), the
+"value/index not used" sentinel accepted by many ProTOOLKIT functions
+(e.g. any negative index passed to `ProArrayObjectAdd` appends at the end
+of the array — `ValueUnused` is one example of that, not the only value
+that triggers this behavior). `creo::ValueDefault` corresponds to
+`PRO_VALUE_DEFAULT` (= -5), the "default value" sentinel — distinct from
+`PRO_VALUE_UNUSED` despite the similar names, do not confuse the two in a
+ProTOOLKIT call. In real-SDK mode, both directly reuse the PTC macros.
 
 ### Boolean
 
-`creo::Boolean` correspond à `ProBoolean`/`ProBool` (`ProToolkit.h`, enum
-`ProBooleans` : `PRO_B_FALSE = 0`, `PRO_B_TRUE = 1`) — le booléen
-ProTOOLKIT, un type distinct du `bool` C++ bien que ses deux valeurs
-coïncident numériquement avec `false`/`true`. De nombreuses fonctions
-ProTOOLKIT prennent ou renvoient précisément ce type, jamais un `bool`
-C++ :
+`creo::Boolean` corresponds to `ProBoolean`/`ProBool` (`ProToolkit.h`,
+enum `ProBooleans`: `PRO_B_FALSE = 0`, `PRO_B_TRUE = 1`) — the ProTOOLKIT
+boolean, a type distinct from C++ `bool` even though its two values
+numerically coincide with `false`/`true`. Many ProTOOLKIT functions take
+or return precisely this type, never a C++ `bool`:
 
 ```cpp
 creo::Boolean flag = creo::ToProBoolean(true);
-// ... CREO_CHECK(UneFonctionProtoolkit(..., flag));
+// ... CREO_CHECK(SomeProtoolkitFunction(..., flag));
 
 bool value = creo::ToBool(flag);
 ```
 
-`ToBool()` teste `!= PRO_B_FALSE` plutôt que `== PRO_B_TRUE`, par prudence
-défensive envers une valeur qui ne serait ni l'une ni l'autre des deux
-documentées.
+`ToBool()` tests `!= PRO_B_FALSE` rather than `== PRO_B_TRUE`, out of
+defensive caution against a value that would be neither of the two
+documented ones.
 
 ### ModelHandle
 
-Au-delà de `IsValid()`/`Raw()`, `ModelHandle` expose une méthode de
-confort pour le cas le plus courant :
+Beyond `IsValid()`/`Raw()`, `ModelHandle` exposes a convenience method for
+the most common case:
 
 ```cpp
 creo::ModelHandle model(raw_model);
-creo::ModelName name = model.Name();  // CREO_CHECK(ProMdlMdlNameGet(...)) intégré
+creo::ModelName name = model.Name();  // CREO_CHECK(ProMdlMdlNameGet(...)) built in
 ```
 
-`Name()` lève `std::logic_error` (pas une `ProToolkitError`) si le handle
-est invalide (nul) : l'erreur est détectée avant même de tenter l'appel
-ProTOOLKIT, avec un message plus explicite qu'un `PRO_TK_BAD_INPUTS`
-générique remonté depuis le SDK.
+`Name()` throws `std::logic_error` (not a `ProToolkitError`) if the
+handle is invalid (null): the error is detected before even attempting
+the ProTOOLKIT call, with a clearer message than a generic
+`PRO_TK_BAD_INPUTS` coming back from the SDK.
 
-Deux `ModelHandle` sont comparables par égalité — ils désignent le même
-modèle si et seulement s'ils portent le même handle ProTOOLKIT sous-jacent
-(pas seulement le même nom, deux modèles distincts pouvant partager un nom
-générique) :
+Two `ModelHandle` are comparable by equality — they refer to the same
+model if and only if they carry the same underlying ProTOOLKIT handle
+(not just the same name, since two distinct models can share a generic
+name):
 
 ```cpp
-if (model1 == model2) { /* même modèle */ }
+if (model1 == model2) { /* same model */ }
 ```
 
 ### Array&lt;T&gt;
 
-`creo::Array<T>` (`include/creo/array.hpp`) enveloppe `ProArray`
-(`ProArray.h`) : le tableau dynamique générique de ProTOOLKIT. À la
-différence de `ModelHandle` (non-propriétaire — Creo gère le cycle de vie
-d'un modèle), un `ProArray` est explicitement alloué/libéré par
-l'appelant : `Array<T>` en prend donc la propriété complète en RAII
-(alloue à la construction, libère au destructeur).
+`creo::Array<T>` (`include/creo/array.hpp`) wraps `ProArray`
+(`ProArray.h`): ProTOOLKIT's generic dynamic array. Unlike `ModelHandle`
+(non-owning — Creo manages a model's lifetime), a `ProArray` is
+explicitly allocated/freed by the caller: `Array<T>` therefore takes full
+RAII ownership of it (allocates on construction, frees in the
+destructor).
 
 ```cpp
 #include "creo/array.hpp"
 
-creo::Array<int> values(0, 8); // vide, croît par blocs de 8 éléments
+creo::Array<int> values(0, 8); // empty, grows in blocks of 8 elements
 values.Append(10);
 values.Append(20);
 values.Insert(1, 15);           // -> 10, 15, 20
 values.Remove(0);               // -> 15, 20
 
-for (int v : values) { /* ... */ }   // itération standard (begin()/end())
-int v = values[0];                    // accès non vérifié, comme std::vector
-int w = values.At(0);                 // accès vérifié, lève std::out_of_range
+for (int v : values) { /* ... */ }   // standard iteration (begin()/end())
+int v = values[0];                    // unchecked access, like std::vector
+int w = values.At(0);                 // checked access, throws std::out_of_range
 
-// Prendre possession d'un ProArray déjà alloué par une autre fonction
-// ProTOOLKIT (au lieu d'en allouer un nouveau) :
+// Take ownership of a ProArray already allocated by another ProTOOLKIT
+// function (instead of allocating a new one):
 creo::Array<ProFeature> feats = creo::Array<ProFeature>::Adopt(raw_pro_array);
 ```
 
-**`T` peut être n'importe quel type C++** (`std::string`, une classe avec
-destructeur/membres possédés, ...), pas seulement un type trivialement
-copiable — voir plus bas pourquoi, et pourquoi ça a nécessité une
-implémentation différente de ce qu'un simple appel aux fonctions
-ProTOOLKIT natives aurait donné.
+**`T` can be any C++ type** (`std::string`, a class with a
+destructor/owned members, ...), not just a trivially copyable one — see
+below for why, and why that required an implementation different from
+what a plain call to the native ProTOOLKIT functions would give.
 
-Points importants :
-- **Déplaçable, non copiable** : ProTOOLKIT n'offre pas de primitive de
-  duplication ; une copie profonde élément par élément serait coûteuse et
-  surprenante à faire passer pour un simple constructeur de copie.
-- **Gestion mémoire réellement C++, pas C** : les fonctions natives
-  `ProArrayObjectAdd`/`ProArrayObjectRemove`/`ProArraySizeSet` déplacent
-  les éléments par copie mémoire brute (`memmove`/`realloc` côté C), sans
-  jamais appeler de constructeur/destructeur C++ — sans risque pour un
-  type trivialement copiable, mais qui corromprait un type qui ne l'est
-  pas (`std::string` peut stocker un pointeur interne vers son propre
-  buffer ; le déplacer par `memmove` l'invalide). `Array<T>` n'utilise
-  donc `ProArray` QUE comme fournisseur de mémoire brute
-  (`ProArrayAlloc`/`ProArrayFree`) : toute la gestion du cycle de vie des
-  éléments (construction, destruction, déplacement lors d'une croissance
-  ou d'un décalage) est implémentée en C++ pur — exactement comme
-  `std::vector` au-dessus de son allocateur — avec la garantie forte
-  d'exception sur `Reserve()` (préférant la copie au déplacement quand ce
-  dernier peut lever, via `std::move_if_noexcept`, comme le fait la
-  bibliothèque standard). Résultat : aucune restriction de type visible
-  pour l'utilisateur du wrapper.
-- `Insert(index, ...)` : un `index` négatif équivaut à insérer en fin de
-  tableau (mêmes bornes que `Append`).
-- `Adopt()` reste, lui, spécifiquement réservé à un `T` trivialement
-  copiable (vérifié par `static_assert`) : un `ProArray` construit par
-  ProTOOLKIT lui-même ne peut contenir que des données C, jamais des
-  objets C++ déjà construits.
+Key points:
+- **Movable, not copyable**: ProTOOLKIT offers no duplication primitive;
+  a deep, element-by-element copy would be expensive and surprising to
+  pass off as a plain copy constructor.
+- **Genuinely C++ memory management, not C**: the native functions
+  `ProArrayObjectAdd`/`ProArrayObjectRemove`/`ProArraySizeSet` move
+  elements by raw memory copy (`memmove`/`realloc` on the C side), never
+  calling a C++ constructor/destructor — safe for a trivially copyable
+  type, but would corrupt one that isn't (`std::string` can store an
+  internal pointer into its own buffer; moving it via `memmove` invalidates
+  it). `Array<T>` therefore only uses `ProArray` as a raw memory provider
+  (`ProArrayAlloc`/`ProArrayFree`): all element lifetime management
+  (construction, destruction, moving on growth or on a shift) is
+  implemented in pure C++ — exactly like `std::vector` on top of its
+  allocator — with the strong exception guarantee on `Reserve()`
+  (preferring a copy over a move when the latter could throw, via
+  `std::move_if_noexcept`, as the standard library itself does). Result:
+  no type restriction visible to the wrapper's user.
+- `Insert(index, ...)`: a negative `index` is equivalent to inserting at
+  the end of the array (same bounds as `Append`).
+- `Adopt()`, on the other hand, is specifically restricted to a trivially
+  copyable `T` (checked via `static_assert`): a `ProArray` built by
+  ProTOOLKIT itself can only ever hold C data, never already-constructed
+  C++ objects.
 
-En mode shim (sans SDK), `ProArrayAlloc`/`ProArrayFree` (et
-`ProArraySizeGet`, utilisée par `Adopt()`) sont réimplémentées
-fonctionnellement plutôt que d'être de simples types de substitution :
-contrairement à `ProMdl`/`ProError`, `Array<T>` a un vrai comportement à
-exercer pour être testable sans Creo installé. Le shim reproduit aussi
-`ProArraySizeSet`/`ProArrayObjectAdd`/`ProArrayObjectRemove` par fidélité
-à `ProArray.h`, même si `Array<T>` ne les utilise plus (voir plus haut).
+In shim mode (no SDK), `ProArrayAlloc`/`ProArrayFree` (and
+`ProArraySizeGet`, used by `Adopt()`) are reimplemented functionally
+rather than being plain substitute types: unlike `ProMdl`/`ProError`,
+`Array<T>` has real behavior to exercise to be testable without Creo
+installed. The shim also reproduces
+`ProArraySizeSet`/`ProArrayObjectAdd`/`ProArrayObjectRemove` for fidelity
+to `ProArray.h`, even though `Array<T>` no longer uses them (see above).
 
 ### ObjectType
 
-`creo::ObjectType` correspond à `ProType` (`pro_obj_types`,
-`ProObjects.h`) : le type d'objet de base de données Creo **au sens
-large**, pas seulement les modèles. Les modèles au sens courant
-(part/assemblage/dessin/manufacturing/...) n'en sont qu'une petite
-partie, à côté des features, courbes, entités de simulation, de
-maillage, d'animation, etc. — plusieurs centaines de valeurs au total.
+`creo::ObjectType` corresponds to `ProType` (`pro_obj_types`,
+`ProObjects.h`): the Creo database object type **in the broad sense**,
+not just models. Models in the everyday sense
+(part/assembly/drawing/manufacturing/...) are only a small part of it,
+alongside features, curves, simulation entities, mesh entities,
+animation entities, etc. — several hundred values in total.
 
 ```cpp
 creo::ObjectType t = creo::ObjectType::PRO_PART;
 if (t == creo::ObjectType::PRO_ASSEMBLY) { /* ... */ }
 ```
 
-Quelques valeurs "modèle" pour repère : `PRO_ASSEMBLY` (1), `PRO_PART`
-(2), `PRO_DRAWING` (4), `PRO_MFG` (37), `PRO_SUB_ASSEMBLY` (34),
-`PRO_DWGFORM` (33), `PRO_LAYOUT` (19), `PRO_REPORT` (105), `PRO_MARKUP`
-(116), `PRO_DIAGRAM` (121).
+A few "model" values for reference: `PRO_ASSEMBLY` (1), `PRO_PART` (2),
+`PRO_DRAWING` (4), `PRO_MFG` (37), `PRO_SUB_ASSEMBLY` (34), `PRO_DWGFORM`
+(33), `PRO_LAYOUT` (19), `PRO_REPORT` (105), `PRO_MARKUP` (116),
+`PRO_DIAGRAM` (121).
 
-Une valeur de l'énum réelle a été omise : `PRO_TYPE_UNUSED` (définie côté
-PTC comme `= PRO_VALUE_UNUSED`), car `PRO_VALUE_UNUSED` n'a pas été
-fournie et sa valeur n'a pas été devinée. Un build avec le SDK réel
-l'obtient normalement via l'en-tête PTC ; seul le mode shim (hors SDK) ne
-la propose pas.
+One value from the real enum has been omitted: `PRO_TYPE_UNUSED` (defined
+on the PTC side as `= PRO_VALUE_UNUSED`), because `PRO_VALUE_UNUSED` had
+not been provided and its value was not to be guessed. A build with the
+real SDK gets it normally via the PTC header; only shim mode (no SDK)
+does not offer it.
 
-### Types disponibles (`include/creo/types.hpp`)
+### Available types (`include/creo/types.hpp`)
 
-Deux familles de buffers texte à taille fixe, selon ce que PTC utilise
-côté C (voir `detail/protoolkit_compat.hpp`/`protoolkit_shim.hpp` pour le
-détail des constantes `PRO_*_SIZE`) :
+Two families of fixed-size text buffers, depending on what PTC uses on
+the C side (see `detail/protoolkit_compat.hpp`/`protoolkit_shim.hpp` for
+the details of the `PRO_*_SIZE` constants):
 
-**Buffers wide (`wchar_t[N]`, gabarit `FixedWString<N>`)** — la majorité
-des types texte ProTOOLKIT depuis Pro/ENGINEER Wildfire :
+**Wide buffers (`wchar_t[N]`, `FixedWString<N>` template)** — most
+ProTOOLKIT text types since Pro/ENGINEER Wildfire:
 
-| Type C++            | Buffer ProTOOLKIT      | Taille | Usage                                    |
-|----------------------|------------------------|-------:|-------------------------------------------|
-| `Name`               | `ProName`              |     32 | Nom générique (feature, paramètre, ...)  |
-| `ModelName`          | `ProMdlName`           |    180 | Nom d'un modèle (ProMdlMdlNameGet)        |
-| `Line`               | `ProLine`              |     81 | Ligne de texte (messages)                 |
-| `Path`               | `ProPath`              |    260 | Chemin de fichier / répertoire            |
-| `Comment`            | `ProComment`           |    256 | Commentaire                               |
-| `Value`              | (`PRO_VALUE_SIZE`)     |    256 | Valeur de paramètre (texte)               |
-| `FeatRefKey`         | (`PRO_FEATREF_KEY_SIZE`)|     81 | Clé de référence de feature              |
-| `ModelExtension`     | `ProMdlExtension`      |     32 | Extension de fichier d'un modèle          |
-| `Macro`              | `ProMacro`             |    256 | Macro (taille conservée pour compat. PTC) |
-| `MdlFileName`        | `ProMdlFileName`       |    216 | Nom de fichier complet "nom.ext.#"        |
-| `FileName`           | `ProFileName`          |     40 | Idem, cas générique                       |
-| `FamTabColumnDesc`   | `ProFamtabClmDesc`     |    260 | Description de colonne de table de famille|
-| `FamilyMdlName`      | `ProFamilyMdlName`     |    362 | Instance de table de famille "inst[gen]"  |
-| `FamilyName`         | `ProFamilyName`        |     66 | Idem, cas générique                       |
-| `DisplayModelName`   | `ProDisplayModelName`  |    362 | Nom d'affichage d'un modèle                |
-| `ModelTypeCode`      | *(pas de typedef PTC)* |      4 | "prt"/"asm"/"drw" — brique interne         |
-| `Extension`          | *(pas de typedef PTC)* |      4 | Extension générique — brique interne       |
-| `VersionSuffix`      | *(pas de typedef PTC)* |      4 | Suffixe de version — brique interne        |
+| C++ type             | ProTOOLKIT buffer      | Size | Usage                                    |
+|----------------------|------------------------|-----:|-------------------------------------------|
+| `Name`               | `ProName`              |   32 | Generic name (feature, parameter, ...)   |
+| `ModelName`          | `ProMdlName`           |  180 | A model's name (ProMdlMdlNameGet)         |
+| `Line`               | `ProLine`              |   81 | Line of text (messages)                   |
+| `Path`               | `ProPath`              |  260 | File / directory path                     |
+| `Comment`            | `ProComment`           |  256 | Comment                                   |
+| `Value`              | (`PRO_VALUE_SIZE`)     |  256 | Parameter value (text)                    |
+| `FeatRefKey`         | (`PRO_FEATREF_KEY_SIZE`)|  81 | Feature reference key                    |
+| `ModelExtension`     | `ProMdlExtension`      |   32 | A model's file extension                  |
+| `Macro`              | `ProMacro`             |  256 | Macro (size kept for PTC compat.)         |
+| `MdlFileName`        | `ProMdlFileName`       |  216 | Full file name "name.ext.#"               |
+| `FileName`           | `ProFileName`          |   40 | Same, generic case                        |
+| `FamTabColumnDesc`   | `ProFamtabClmDesc`     |  260 | Family table column description           |
+| `FamilyMdlName`      | `ProFamilyMdlName`     |  362 | Family table instance "inst[gen]"         |
+| `FamilyName`         | `ProFamilyName`        |   66 | Same, generic case                        |
+| `DisplayModelName`   | `ProDisplayModelName`  |  362 | A model's display name                    |
+| `ModelTypeCode`      | *(no PTC typedef)*     |    4 | "prt"/"asm"/"drw" — internal building block|
+| `Extension`          | *(no PTC typedef)*     |    4 | Generic extension — internal building block|
+| `VersionSuffix`      | *(no PTC typedef)*     |    4 | Version suffix — internal building block   |
 
-`ModelTypeCode`/`Extension`/`VersionSuffix` n'ont pas d'équivalent PTC
-autonome : `PRO_TYPE_SIZE`, `PRO_EXTENSION_SIZE` et `PRO_VERSION_SIZE`
-n'apparaissent dans les en-têtes PTC que combinés à l'intérieur de
-`ProMdlFileName`/`ProFileName`. Ce sont des briques utilitaires du
-wrapper, pas la réexposition d'un type PTC.
+`ModelTypeCode`/`Extension`/`VersionSuffix` have no standalone PTC
+equivalent: `PRO_TYPE_SIZE`, `PRO_EXTENSION_SIZE` and `PRO_VERSION_SIZE`
+only ever appear in PTC headers combined inside
+`ProMdlFileName`/`ProFileName`. These are utility building blocks of the
+wrapper, not the re-exposure of a PTC type.
 
-**Buffers étroits (`char[N]`, gabarit `FixedCharString<N>`)** :
+**Narrow buffers (`char[N]`, `FixedCharString<N>` template)**:
 
-| Type C++          | Buffer ProTOOLKIT     | Taille | Usage                          |
-|--------------------|------------------------|-------:|---------------------------------|
-| `CharName`         | `ProCharName`          |     32 | Variante char de `Name`         |
-| `CharPath`         | `ProCharPath`          |    260 | Variante char de `Path`         |
-| `CharLine`         | `ProCharLine`          |     81 | Variante char de `Line` (messages)|
-| `MenuName`         | `ProMenuName`          |     32 | Nom de menu                     |
-| `MenuFileName`     | `ProMenufileName`      |     32 | Nom de fichier menu (.mnu)      |
-| `MenuButtonName`   | `ProMenubuttonName`    |     32 | Nom de bouton de menu           |
+| C++ type          | ProTOOLKIT buffer      | Size | Usage                            |
+|--------------------|------------------------|-----:|-----------------------------------|
+| `CharName`         | `ProCharName`          |   32 | Char variant of `Name`            |
+| `CharPath`         | `ProCharPath`          |  260 | Char variant of `Path`            |
+| `CharLine`         | `ProCharLine`          |   81 | Char variant of `Line` (messages) |
+| `MenuName`         | `ProMenuName`          |   32 | Menu name                         |
+| `MenuFileName`     | `ProMenufileName`      |   32 | Menu file name (.mnu)             |
+| `MenuButtonName`   | `ProMenubuttonName`    |   32 | Menu button name                  |
 
-`ModelName` (180) n'est **pas** un alias de `Name` (32) : PTC réserve une
-taille bien plus grande aux noms de modèles qu'aux autres noms Creo — les
-confondre tronquerait silencieusement un nom de modèle trop long pour un
-`Name`.
+`ModelName` (180) is **not** an alias of `Name` (32): PTC reserves a much
+larger size for model names than for other Creo names — confusing them
+would silently truncate a model name that is too long for a `Name`.
 
-`MaxAssemLevel` (= 25, `PRO_MAX_ASSEM_LEVEL`) est aussi exposé, mais ce
-n'est pas une taille de buffer : c'est le nombre maximum de niveaux
-d'imbrication d'assemblage pris en charge par ProTOOLKIT. `ValueUnused`/
-`ValueDefault` (`PRO_VALUE_UNUSED`/`PRO_VALUE_DEFAULT`) et `Boolean`
-(`ProBoolean`/`ProBool`) sont documentés plus haut, voir « Comparaisons,
-`View()` et interopérabilité » et « Boolean ».
+`MaxAssemLevel` (= 25, `PRO_MAX_ASSEM_LEVEL`) is also exposed, but it is
+not a buffer size: it is the maximum number of assembly nesting levels
+supported by ProTOOLKIT. `ValueUnused`/`ValueDefault`
+(`PRO_VALUE_UNUSED`/`PRO_VALUE_DEFAULT`) and `Boolean`
+(`ProBoolean`/`ProBool`) are documented above, see "Comparisons, `View()`
+and interoperability" and "Boolean".
 
-## Contribuer
+## Contributing
 
-Les contributions sont les bienvenues. N'hésitez pas à ouvrir une issue ou
-une pull request.
+Contributions are welcome. Feel free to open an issue or a pull request.
 
-## Licence
+## License
 
-À définir.
+To be determined.

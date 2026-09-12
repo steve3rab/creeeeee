@@ -197,7 +197,7 @@ std::string ToString(ErrorCode code) {
     return "PRO_TK_APP_JLINK_NOT_ALLOWED";
   default:
     return "code #" + std::to_string(static_cast<int>(code)) +
-           " (inconnu de creo::ToString)";
+           " (unknown to creo::ToString)";
   }
 }
 

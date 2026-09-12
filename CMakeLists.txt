@@ -1,9 +1,9 @@
-# Wrapper C++17 pour ProTOOLKIT (Creo Parametric 10.0).
+# C++17 wrapper for ProTOOLKIT (Creo Parametric 10.0).
 #
-# Compile toujours (avec ou sans le SDK PTC installé, cf.
-# include/creo/detail/protoolkit_compat.hpp). Pour lier une vraie session
-# Creo 10, renseignez CREO_TOOLKIT_ROOT (et CREO_TOOLKIT_ARCH si besoin) :
-# voir cmake/FindProToolkit.cmake et le README pour le détail.
+# Always compiles (with or without the PTC SDK installed, see
+# include/creo/detail/protoolkit_compat.hpp). To link against a real
+# Creo 10 session, set CREO_TOOLKIT_ROOT (and CREO_TOOLKIT_ARCH if
+# needed): see cmake/FindProToolkit.cmake and the README for details.
 
 cmake_minimum_required(VERSION 3.16)
 project(creo_wrapper LANGUAGES CXX)
@@ -23,18 +23,18 @@ target_include_directories(creo_wrapper PUBLIC
 )
 
 if(ProToolkit_FOUND)
-  message(STATUS "SDK ProTOOLKIT trouvé : ${ProToolkit_INCLUDE_DIRS}")
+  message(STATUS "ProTOOLKIT SDK found: ${ProToolkit_INCLUDE_DIRS}")
   target_include_directories(creo_wrapper PUBLIC ${ProToolkit_INCLUDE_DIRS})
   target_link_libraries(creo_wrapper PUBLIC ${ProToolkit_LIBRARIES})
 else()
   message(WARNING
-    "SDK ProTOOLKIT (Creo 10) introuvable : compilation en mode 'shim' "
-    "(types de substitution, non lié à une session Creo réelle). "
-    "Définissez CREO_TOOLKIT_ROOT pour pointer vers le dossier protoolkit "
-    "de votre installation Creo 10 et bénéficier de la vraie API.")
+    "ProTOOLKIT SDK (Creo 10) not found: building in 'shim' mode "
+    "(substitute types, not linked to a real Creo session). "
+    "Set CREO_TOOLKIT_ROOT to point to the protoolkit folder of your "
+    "Creo 10 installation to use the real API.")
 endif()
 
-option(CREO_WRAPPER_BUILD_EXAMPLES "Compiler les exemples du wrapper" ON)
+option(CREO_WRAPPER_BUILD_EXAMPLES "Build the wrapper examples" ON)
 if(CREO_WRAPPER_BUILD_EXAMPLES)
   add_executable(hello_creo examples/hello_creo.cpp)
   target_link_libraries(hello_creo PRIVATE creo_wrapper)

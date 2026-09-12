@@ -13,44 +13,43 @@ namespace creo {
 // ---------------------------------------------------------------------------
 // Array<T>
 // ---------------------------------------------------------------------------
-// Conteneur RAII autour de `ProArray` (ProArray.h) : le tableau dynamique
-// générique de ProTOOLKIT. Contrairement à `ModelHandle` (non-propriétaire
-// — le cycle de vie d'un ProMdl est géré par la session Creo), un ProArray
-// EST explicitement alloué/libéré par l'appelant : ce wrapper en prend
-// donc la propriété complète (alloue à la construction, libère au
-// destructeur), avec sémantique de déplacement uniquement — pas de copie,
-// ProTOOLKIT n'offrant pas de primitive de duplication.
+// RAII container around `ProArray` (ProArray.h): ProTOOLKIT's generic
+// dynamic array. Unlike `ModelHandle` (non-owning — the lifetime of a
+// ProMdl is managed by the Creo session), a ProArray IS explicitly
+// allocated/freed by the caller: this wrapper therefore takes full
+// ownership of it (allocates on construction, frees in the destructor),
+// with move-only semantics — no copy, since ProTOOLKIT offers no
+// duplication primitive.
 //
-// Point important sur la gestion mémoire : les fonctions natives
-// ProArrayObjectAdd/ProArrayObjectRemove/ProArraySizeSet déplacent les
-// éléments par copie mémoire brute (memmove/realloc côté C), sans jamais
-// appeler de constructeur/destructeur C++. C'est sans risque pour un type
-// trivialement copiable (un int, un ProMdl, un struct C simple), mais
-// corromprait un type qui ne l'est pas (ex: std::string, dont certaines
-// implémentations stockent un pointeur interne vers son propre buffer —
-// le déplacer par memmove laisse ce pointeur invalide).
+// Important note on memory management: the native functions
+// ProArrayObjectAdd/ProArrayObjectRemove/ProArraySizeSet move elements by
+// raw memory copy (memmove/realloc on the C side), never calling a C++
+// constructor/destructor. That's safe for a trivially copyable type (an
+// int, a ProMdl, a plain C struct), but would corrupt one that isn't
+// (e.g. std::string, some implementations of which store an internal
+// pointer into their own buffer — moving it via memmove leaves that
+// pointer dangling).
 //
-// Pour que ce conteneur se comporte en C++ pour N'IMPORTE QUEL T — sans
-// que l'utilisateur du wrapper ait à s'en soucier ou à se heurter à une
-// restriction de type — ProArray n'est donc utilisé ici QUE comme
-// fournisseur de mémoire brute (ProArrayAlloc/ProArrayFree) : toute la
-// gestion du cycle de vie des éléments (construction, destruction,
-// déplacement lors d'une croissance ou d'un décalage) est implémentée en
-// C++ pur, exactement comme le fait std::vector au-dessus de son
-// allocateur. Size()/Capacity() sont donc suivis par ce wrapper lui-même,
-// pas relus depuis ProTOOLKIT à chaque appel.
+// For this container to behave like C++ for ANY T — without the wrapper's
+// user having to worry about it or hit a type restriction — ProArray is
+// therefore used here ONLY as a raw memory provider
+// (ProArrayAlloc/ProArrayFree): all element lifetime management
+// (construction, destruction, moving on growth or on a shift) is
+// implemented in pure C++, exactly as std::vector does on top of its
+// allocator. Size()/Capacity() are thus tracked by this wrapper itself,
+// not re-read from ProTOOLKIT on every call.
 template <typename T> class Array {
 public:
-  // Alloue un tableau de `initial_count` éléments valeur-initialisés, qui
-  // croîtra par blocs d'au moins `reallocation_size` éléments. Nécessite T
-  // par défaut constructible si `initial_count > 0` (comme std::vector(n))
-  // — mais `Array<T> a(0, N)` compile et fonctionne pour N'IMPORTE QUEL T,
-  // y compris sans constructeur par défaut : le `if constexpr` ci-dessous
-  // empêche le compilateur d'exiger T() tant que ce chemin n'est pas
-  // réellement emprunté avec un initial_count strictement positif (une
-  // simple condition `if` à l'exécution ne suffirait pas : le corps de la
-  // fonction serait quand même instancié pour un `Array<T>` donné, que la
-  // branche soit prise ou non).
+  // Allocates an array of `initial_count` value-initialized elements,
+  // which will grow in blocks of at least `reallocation_size` elements.
+  // Requires T to be default-constructible if `initial_count > 0` (like
+  // std::vector(n)) — but `Array<T> a(0, N)` compiles and works for ANY
+  // T, including one with no default constructor: the `if constexpr`
+  // below stops the compiler from requiring T() as long as this path is
+  // not actually taken with a strictly positive initial_count (a plain
+  // runtime `if` would not be enough here: the function body would still
+  // get instantiated for a given `Array<T>` whether or not the branch is
+  // taken).
   explicit Array(int initial_count = 0, int reallocation_size = 8)
       : reallocation_size_(reallocation_size > 0 ? reallocation_size : 1) {
     if (initial_count > 0) {
@@ -65,19 +64,18 @@ public:
     }
   }
 
-  // Prend possession d'un ProArray déjà alloué par ProTOOLKIT lui-même
-  // (typiquement renvoyé par une fonction Creo qui construit son propre
-  // tableau) : sera libéré par ce wrapper à sa destruction. Un tel
-  // ProArray ne peut, par construction, contenir que des données C
-  // (ProTOOLKIT ne sait pas construire d'objet C++) : T doit donc être
-  // trivialement copiable pour cet usage précis, même si le reste du
-  // conteneur ne l'exige pas.
+  // Takes ownership of a ProArray already allocated by ProTOOLKIT itself
+  // (typically returned by a Creo function that builds its own array):
+  // it will be freed by this wrapper on destruction. Such a ProArray can,
+  // by construction, only ever contain C data (ProTOOLKIT cannot
+  // construct a C++ object): T must therefore be trivially copyable for
+  // this specific use, even though the rest of the container does not
+  // require it.
   static Array Adopt(detail::RawArray handle) {
     static_assert(std::is_trivially_copyable_v<T>,
-                  "Array<T>::Adopt() prend possession d'un ProArray "
-                  "construit par ProTOOLKIT lui-même, donc nécessairement "
-                  "composé de données C : T doit être trivialement "
-                  "copiable pour cet usage.");
+                  "Array<T>::Adopt() takes ownership of a ProArray built "
+                  "by ProTOOLKIT itself, so it necessarily holds C data: "
+                  "T must be trivially copyable for this use.");
     int size = 0;
     CREO_CHECK(detail::ArraySizeGet(handle, &size));
     return Array(handle, static_cast<T *>(handle), size, size,
@@ -127,11 +125,10 @@ public:
   int Capacity() const noexcept { return capacity_; }
   bool Empty() const noexcept { return size_ == 0; }
 
-  // Garantit une capacité d'au moins `new_capacity`, en réallouant un
-  // nouveau bloc ProArray et en y déplaçant (ou copiant, si le
-  // déplacement peut lever) chaque élément existant si nécessaire.
-  // Garantie forte : si une exception est levée, ce tableau reste
-  // inchangé.
+  // Guarantees a capacity of at least `new_capacity`, by reallocating a
+  // new ProArray block and moving (or copying, if the move could throw)
+  // each existing element into it as needed. Strong guarantee: if an
+  // exception is thrown, this array is left unchanged.
   void Reserve(int new_capacity) {
     if (new_capacity <= capacity_) {
       return;
@@ -162,13 +159,13 @@ public:
     capacity_ = new_capacity;
   }
 
-  // Redimensionne à exactement `new_size` éléments : construit (par
-  // défaut) les nouveaux si `new_size > Size()`, détruit les excédentaires
-  // sinon. Nécessite T par défaut constructible pour agrandir.
+  // Resizes to exactly `new_size` elements: default-constructs the new
+  // ones if `new_size > Size()`, destroys the extra ones otherwise.
+  // Requires T to be default-constructible to grow.
   void Resize(int new_size) {
     if (new_size < 0) {
       throw std::invalid_argument(
-          "new_size doit être positif pour creo::Array::Resize");
+          "new_size must be positive for creo::Array::Resize");
     }
     if (new_size > size_) {
       GrowIfNeeded(new_size);
@@ -185,27 +182,27 @@ public:
     size_ = 0;
   }
 
-  // Insère une copie/un déplacement de `value` à `index` (décale les
-  // éléments suivants), ou en index négatif pour ajouter en fin de
-  // tableau. La valeur est capturée avant toute croissance éventuelle du
-  // tableau, pour rester correct même si `value` référence un élément de
-  // ce même tableau (ex: arr.Insert(0, arr[3])).
+  // Inserts a copy/move of `value` at `index` (shifting later elements),
+  // or at the end of the array for a negative index. The value is
+  // captured before any potential growth of the array, to remain correct
+  // even if `value` references an element of this same array (e.g.
+  // arr.Insert(0, arr[3])).
   void Insert(int index, const T &value) { InsertImpl(index, value); }
   void Insert(int index, T &&value) { InsertImpl(index, std::move(value)); }
 
   void Append(const T &value) { AppendImpl(value); }
   void Append(T &&value) { AppendImpl(std::move(value)); }
 
-  // Retire `n_objects` éléments à partir de `index` (ou les `n_objects`
-  // derniers si `index` est négatif), en décalant le reste.
+  // Removes `n_objects` elements starting at `index` (or the last
+  // `n_objects` if `index` is negative), shifting the rest down.
   void Remove(int index, int n_objects = 1) {
     if (n_objects <= 0) {
       throw std::invalid_argument(
-          "n_objects doit être positif pour creo::Array::Remove");
+          "n_objects must be positive for creo::Array::Remove");
     }
     int remove_at = (index < 0) ? (size_ - n_objects) : index;
     if (remove_at < 0 || remove_at + n_objects > size_) {
-      throw std::out_of_range("plage hors limites pour creo::Array::Remove");
+      throw std::out_of_range("range out of bounds for creo::Array::Remove");
     }
     int tail_count = size_ - (remove_at + n_objects);
     for (int i = 0; i < tail_count; ++i) {
@@ -224,13 +221,13 @@ public:
 
   T &At(int index) {
     if (index < 0 || index >= size_) {
-      throw std::out_of_range("index hors limites pour creo::Array");
+      throw std::out_of_range("index out of range for creo::Array");
     }
     return data_[index];
   }
   const T &At(int index) const {
     if (index < 0 || index >= size_) {
-      throw std::out_of_range("index hors limites pour creo::Array");
+      throw std::out_of_range("index out of range for creo::Array");
     }
     return data_[index];
   }
@@ -240,10 +237,10 @@ public:
   const T *begin() const noexcept { return data_; }
   const T *end() const noexcept { return data_ + size_; }
 
-  // Handle brut, pour les appels directs aux fonctions ProTOOLKIT non
-  // (encore) enveloppées ici. Reflète la CAPACITÉ allouée (pas Size()) :
-  // ProTOOLKIT lui-même n'a pas connaissance de la distinction que ce
-  // wrapper fait entre taille logique et capacité.
+  // Raw handle, for direct calls to ProTOOLKIT functions not (yet)
+  // wrapped here. Reflects the allocated CAPACITY (not Size()):
+  // ProTOOLKIT itself has no notion of the distinction this wrapper
+  // makes between logical size and capacity.
   detail::RawArray Raw() const noexcept { return handle_; }
 
 private:
@@ -258,17 +255,16 @@ private:
     }
   }
 
-  // Construit des éléments par défaut dans [begin_index, end_index) d'un
-  // buffer déjà suffisamment dimensionné (par GrowIfNeeded). Le buffer
-  // reste dans un état valide si une exception est levée en cours de
-  // route (les éléments déjà construits sont détruits) ; `size_` n'est mis
-  // à jour qu'après un appel réussi, par l'appelant.
+  // Default-constructs elements in [begin_index, end_index) of a buffer
+  // already sized large enough (by GrowIfNeeded). The buffer is left in a
+  // valid state if an exception is thrown along the way (elements
+  // already constructed are destroyed); `size_` is only updated after a
+  // successful call, by the caller.
   //
-  // Le `if constexpr` est nécessaire, pas seulement stylistique : sans
-  // lui, `T()` serait exigé à la compilation pour TOUT Array<T> dès que le
-  // constructeur ou Resize() existe, même quand `initial_count`/
-  // `new_size` valent 0 à l'exécution et que ce chemin n'est jamais
-  // emprunté pour de vrai.
+  // The `if constexpr` is necessary, not just stylistic: without it,
+  // `T()` would be required at compile time for ANY Array<T> as soon as
+  // the constructor or Resize() exists, even when `initial_count`/
+  // `new_size` are 0 at runtime and this path is never actually taken.
   void ConstructDefaultRange(int begin_index, int end_index) {
     if constexpr (std::is_default_constructible_v<T>) {
       int constructed = begin_index;
@@ -283,9 +279,8 @@ private:
     } else {
       if (begin_index < end_index) {
         throw std::logic_error(
-            "creo::Array<T> : impossible d'agrandir le tableau par "
-            "construction par défaut, T n'a pas de constructeur par "
-            "défaut accessible");
+            "creo::Array<T>: cannot grow the array via default "
+            "construction, T has no accessible default constructor");
       }
     }
   }
@@ -304,7 +299,7 @@ private:
   template <typename U> void InsertImpl(int index, U &&value) {
     int insert_at = (index < 0) ? size_ : index;
     if (insert_at > size_) {
-      throw std::out_of_range("index hors limites pour creo::Array::Insert");
+      throw std::out_of_range("index out of range for creo::Array::Insert");
     }
     T temp(std::forward<U>(value));
     GrowIfNeeded(size_ + 1);
@@ -336,8 +331,8 @@ private:
   int reallocation_size_ = 8;
 };
 
-// Nombre maximum d'éléments de type T que ProTOOLKIT peut stocker dans un
-// seul ProArray (voir ProArrayMaxCountGet).
+// Maximum number of elements of type T that ProTOOLKIT can store in a
+// single ProArray (see ProArrayMaxCountGet).
 template <typename T> int MaxArrayCount() {
   int max_count = 0;
   CREO_CHECK(detail::ArrayMaxCountGet(static_cast<int>(sizeof(T)), &max_count));

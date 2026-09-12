@@ -28,8 +28,8 @@ public:
   void Assign(std::wstring_view text) {
     if (text.size() > kMaxLength) {
       throw std::length_error(
-          "valeur trop longue pour ce buffer ProTOOLKIT (" +
-          std::to_string(text.size()) + " caractères, capacité max " +
+          "value too long for this ProTOOLKIT buffer (" +
+          std::to_string(text.size()) + " characters, max capacity " +
           std::to_string(kMaxLength) + ")");
     }
     if (!text.empty()) {
@@ -124,8 +124,8 @@ public:
   void Assign(std::string_view text) {
     if (text.size() > kMaxLength) {
       throw std::length_error(
-          "valeur trop longue pour ce buffer ProTOOLKIT (" +
-          std::to_string(text.size()) + " caractères, capacité max " +
+          "value too long for this ProTOOLKIT buffer (" +
+          std::to_string(text.size()) + " characters, max capacity " +
           std::to_string(kMaxLength) + ")");
     }
     if (!text.empty()) {
@@ -284,7 +284,7 @@ public:
   ModelName Name() const {
     if (!IsValid()) {
       throw std::logic_error(
-          "creo::ModelHandle::Name() appelé sur un handle invalide (nul)");
+          "creo::ModelHandle::Name() called on an invalid (null) handle");
     }
     ModelName name;
     CREO_CHECK(detail::MdlMdlNameGet(handle_, name.Raw()));

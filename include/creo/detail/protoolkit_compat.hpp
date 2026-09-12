@@ -1,21 +1,21 @@
 #pragma once
 // -----------------------------------------------------------------------
-// Point d'entrée unique vers les types natifs ProTOOLKIT.
+// Single entry point to the native ProTOOLKIT types.
 //
-// Deux modes de compilation :
-//   1) SDK réel présent (Creo 10 installé + variable CMake/environnement
-//      CREO_TOOLKIT_ROOT renseignée, cf. cmake/FindProToolkit.cmake) : on
-//      inclut directement les en-têtes PTC et on réexpose leurs types tels
-//      quels. C'est le mode à utiliser pour tout build destiné à tourner
-//      dans une session Creo.
-//   2) SDK absent : on retombe sur le shim minimal (protoolkit_shim.hpp)
-//      pour permettre au wrapper de compiler et d'être testé hors poste
-//      Creo.
+// Two build modes:
+//   1) Real SDK present (Creo 10 installed + the CREO_TOOLKIT_ROOT
+//      CMake/environment variable set, see cmake/FindProToolkit.cmake):
+//      the PTC headers are included directly and their types are
+//      re-exposed as-is. This is the mode to use for any build meant to
+//      run inside a Creo session.
+//   2) SDK absent: falls back to the minimal shim (protoolkit_shim.hpp)
+//      so the wrapper can compile and be tested away from a Creo
+//      workstation.
 //
-// Le reste du wrapper (creo::Name, creo::Line, creo::ModelHandle,
-// creo::ProToolkitError, ...) ne dépend que des alias définis ici
-// (creo::detail::RawMdl, creo::detail::k*Size) et n'a donc jamais besoin de
-// savoir dans quel mode il est compilé.
+// The rest of the wrapper (creo::Name, creo::Line, creo::ModelHandle,
+// creo::ProToolkitError, ...) only depends on the aliases defined here
+// (creo::detail::RawMdl, creo::detail::k*Size) and therefore never needs
+// to know which mode it was built in.
 // -----------------------------------------------------------------------
 
 #if defined(__has_include)
@@ -28,13 +28,13 @@
 #endif
 
 #if CREO_WRAPPER_HAS_REAL_SDK
-// En-têtes officiels PTC, fournis avec le SDK ProTOOLKIT de Creo 10.
-// Non redistribués dans ce dépôt : voir README pour leur emplacement.
-// ProSizeConst.h (constantes PRO_*_SIZE) est un en-tête autonome côté PTC
-// (garde d'inclusion propre, ne dépend que de ProToolkit.h pour
-// PRO_BEGIN_C_DECLS/PRO_END_C_DECLS) : rien ne garantit qu'il soit inclus
-// transitivement par les en-têtes ci-dessous, on l'inclut donc
-// explicitement plutôt que de compter dessus.
+// Official PTC headers, shipped with the Creo 10 ProTOOLKIT SDK. Not
+// redistributed in this repository: see the README for where to find
+// them. ProSizeConst.h (the PRO_*_SIZE constants) is a self-contained
+// header on the PTC side (its own include guard, only depending on
+// ProToolkit.h for PRO_BEGIN_C_DECLS/PRO_END_C_DECLS): nothing guarantees
+// it is included transitively by the headers below, so it is included
+// explicitly instead of relying on that.
 #include <ProArray.h>
 #include <ProMdl.h>
 #include <ProObjects.h>
@@ -48,25 +48,24 @@ namespace creo::detail {
 
 #if CREO_WRAPPER_HAS_REAL_SDK
 
-// Code d'erreur et handle de modèle : les seuls types PTC bruts dont le
-// wrapper a réellement besoin (les buffers texte sont reconstruits par
-// FixedWString<N>/FixedCharString<N> à partir des tailles ci-dessous, pas
-// réutilisés directement).
+// Error code and model handle: the only raw PTC types the wrapper
+// actually needs (text buffers are rebuilt by FixedWString<N>/
+// FixedCharString<N> from the sizes below, not reused directly).
 using ProErrorCode = ::ProError;
 using RawMdl = ::ProMdl;
 using RawObjectType = ::ProType;
 using RawArray = ::ProArray;
 using RawBoolean = ::ProBoolean;
 
-// Trampolines vers les fonctions ProArray réelles : creo::Array<T> (voir
-// creo/array.hpp) appelle ces alias, jamais ::ProArrayXxx ni
-// shim::ProArrayXxx directement, pour rester indépendant du mode. Array<T>
-// n'utilise ProArray QUE comme fournisseur de mémoire brute (Alloc/Free) —
-// pas ses fonctions de décalage/redimensionnement natives, qui déplacent
-// les éléments par copie mémoire brute et casseraient tout T non
-// trivialement copiable ; voir le commentaire en tête de array.hpp.
-// SizeGet reste nécessaire pour Adopt(). MaxCountGet reste exposé comme
-// utilitaire autonome (creo::MaxArrayCount<T>()).
+// Trampolines to the real ProArray functions: creo::Array<T> (see
+// creo/array.hpp) calls these aliases, never ::ProArrayXxx nor
+// shim::ProArrayXxx directly, to stay mode-independent. Array<T> only
+// uses ProArray as a raw memory provider (Alloc/Free) — not its native
+// shifting/resizing functions, which move elements by raw memory copy
+// and would break any T that is not trivially copyable; see the comment
+// at the top of array.hpp. SizeGet is still needed for Adopt().
+// MaxCountGet is still exposed as a standalone utility
+// (creo::MaxArrayCount<T>()).
 inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
                                 int reallocation_size, RawArray *p_array) {
   return ::ProArrayAlloc(n_objs, obj_size, reallocation_size, p_array);
@@ -81,13 +80,13 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
   return ::ProArrayMaxCountGet(obj_size, max_num_objs);
 }
 
-// Trampoline vers ProMdlMdlNameGet (voir ModelHandle::Name() dans
-// types.hpp), qui remplace en Creo 10 l'ancienne ProMdlNameGet dépréciée.
+// Trampoline to ProMdlMdlNameGet (see ModelHandle::Name() in types.hpp),
+// which replaces the now-deprecated ProMdlNameGet in Creo 10.
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
   return ::ProMdlMdlNameGet(model, name_out);
 }
 
-// Tailles "atomiques" (constantes PTC officielles, ProSizeConst.h, Creo 10).
+// "Atomic" sizes (official PTC constants, ProSizeConst.h, Creo 10).
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;
 inline constexpr int kCommentSize = PRO_COMMENT_SIZE;
@@ -100,16 +99,16 @@ inline constexpr int kMdlExtensionSize = PRO_MDLEXTENSION_SIZE;
 inline constexpr int kVersionSize = PRO_VERSION_SIZE;
 inline constexpr int kMaxAssemLevel = PRO_MAX_ASSEM_LEVEL;
 inline constexpr int kFeatRefKeySize = PRO_FEATREF_KEY_SIZE;
-// PRO_MACRO_SIZE n'est plus une limite réelle pour ProMacroLoad() côté PTC
-// (conservée par PTC pour compatibilité applicative uniquement) ; on la
-// reprend ici pour la même raison, afin que creo::Macro reste dimensionné
-// comme le typedef ProMacro officiel.
+// PRO_MACRO_SIZE is no longer a real limit for ProMacroLoad() on the PTC
+// side (kept by PTC for application compatibility only); reused here for
+// the same reason, so that creo::Macro stays sized like the official
+// ProMacro typedef.
 inline constexpr int kMacroSize = PRO_MACRO_SIZE;
 
 inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
 
-// Sentinelles "valeur non utilisée" / "valeur par défaut" — voir
-// creo::ValueUnused/ValueDefault dans types.hpp.
+// "Value not used" / "default value" sentinels — see
+// creo::ValueUnused/ValueDefault in types.hpp.
 inline constexpr int kValueUnused = PRO_VALUE_UNUSED;
 inline constexpr int kValueDefault = PRO_VALUE_DEFAULT;
 
@@ -118,7 +117,7 @@ inline constexpr RawBoolean kBooleanTrue = PRO_B_TRUE;
 
 #else
 
-// Alias vers le shim de substitution (voir protoolkit_shim.hpp).
+// Aliases to the substitute shim (see protoolkit_shim.hpp).
 using ProErrorCode = shim::ProError;
 using RawMdl = shim::ProMdl;
 using RawObjectType = shim::ProType;
@@ -165,28 +164,28 @@ inline constexpr RawBoolean kBooleanTrue = shim::PRO_B_TRUE;
 
 #endif
 
-// Tailles composites : mêmes formules que les macros PTC correspondantes,
-// valables à l'identique en mode SDK réel comme en mode shim puisqu'elles
-// ne font que combiner les tailles atomiques ci-dessus.
+// Composite sizes: the same formulas as the corresponding PTC macros,
+// identically valid in real-SDK mode and in shim mode since they only
+// combine the atomic sizes above.
 
-// "name.ext.#" : dimensionne ProMdlFileName (nom de fichier complet d'un
-// modèle Creo).
+// "name.ext.#": sizes ProMdlFileName (the full file name of a Creo
+// model).
 inline constexpr int kFileMdlNameSize =
     kMdlNameSize + kMdlExtensionSize + kVersionSize;
 
-// "name.ext.#" : dimensionne ProFileName (cas générique).
+// "name.ext.#": sizes ProFileName (the generic case).
 inline constexpr int kFileNameSize = kNameSize + kExtensionSize + kVersionSize;
 
-// Dimensionne ProFamtabClmDesc (description de colonne de table de
-// famille) : PTC réutilise directement la taille d'un ProPath.
+// Sizes ProFamtabClmDesc (a family table column description): PTC
+// directly reuses the size of a ProPath.
 inline constexpr int kFamTabFieldNameSize = kPathSize;
 
-// "instance[generic]" : dimensionne à la fois ProFamilyMdlName (nom de
-// modèle d'une instance de table de famille) et ProDisplayModelName (nom
-// d'affichage d'un modèle) — PTC leur donne la même taille.
+// "instance[generic]": sizes both ProFamilyMdlName (the name of a family
+// table instance for a model) and ProDisplayModelName (a model's display
+// name) — PTC gives them the same size.
 inline constexpr int kFamilyMdlNameSize = kMdlNameSize + kMdlNameSize + 2;
 
-// "instance[generic]" : dimensionne ProFamilyName (cas générique).
+// "instance[generic]": sizes ProFamilyName (the generic case).
 inline constexpr int kFamilyNameSize = kNameSize + kNameSize + 2;
 
 } // namespace creo::detail

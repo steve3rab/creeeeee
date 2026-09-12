@@ -7,15 +7,15 @@
 
 namespace creo {
 
-// Code d'erreur natif ProTOOLKIT (ProError), réexposé tel quel : le wrapper
-// ne réinvente pas cette énumération, il s'appuie sur celle du SDK PTC
-// quand celui-ci est disponible (cf. detail/protoolkit_compat.hpp).
+// Native ProTOOLKIT error code (ProError), re-exposed as-is: the wrapper
+// does not reinvent this enum, it relies on the PTC SDK's own one when
+// available (see detail/protoolkit_compat.hpp).
 using ErrorCode = detail::ProErrorCode;
 
-// Exception levée par le wrapper à chaque appel ProTOOLKIT en échec.
-// Conserve le code d'erreur natif pour permettre un traitement fin en amont
-// (catch ciblé sur un code précis), en plus du message lisible standard
-// hérité de std::runtime_error.
+// Exception thrown by the wrapper for every failing ProTOOLKIT call.
+// Keeps the native error code around to allow fine-grained handling
+// upstream (catching on a specific code), in addition to the standard
+// human-readable message inherited from std::runtime_error.
 class ProToolkitError : public std::runtime_error {
 public:
   ProToolkitError(ErrorCode code, std::string_view context);
@@ -26,16 +26,16 @@ private:
   ErrorCode code_;
 };
 
-// Convertit un ProError en texte, ex : ToString(-2) -> "PRO_TK_BAD_INPUTS".
-// Couvre l'intégralité de l'énum ProError/ProErr officielle (ProError.h,
-// Creo 10). Pour un code hors de cette liste (autre version de Creo, ou
-// code applicatif), renvoie le numéro brut plutôt que d'inventer un
-// libellé — voir src/error.cpp pour la table complète.
+// Converts a ProError to text, e.g. ToString(-2) -> "PRO_TK_BAD_INPUTS".
+// Covers the entire official ProError/ProErr enum (ProError.h, Creo 10).
+// For a code outside this list (a different Creo version, or an
+// application-defined code), returns the raw number instead of making up
+// a label — see src/error.cpp for the full table.
 std::string ToString(ErrorCode code);
 
-// Lève une ProToolkitError si `code` n'est pas PRO_TK_NO_ERROR. `context`
-// sert de repère de diagnostic (typiquement le nom de l'appel ProTOOLKIT
-// concerné) et apparaît dans le message de l'exception.
+// Throws a ProToolkitError if `code` is not PRO_TK_NO_ERROR. `context`
+// serves as a diagnostic hint (typically the name of the ProTOOLKIT call
+// involved) and appears in the exception's message.
 inline void ThrowIfError(ErrorCode code, std::string_view context = {}) {
   if (code != detail::kNoError) {
     throw ProToolkitError(code, context);
@@ -44,9 +44,9 @@ inline void ThrowIfError(ErrorCode code, std::string_view context = {}) {
 
 } // namespace creo
 
-// Appelle `expr` (une fonction ProTOOLKIT retournant un ProError) et
-// transforme automatiquement un échec en creo::ProToolkitError, en
-// capturant l'expression elle-même comme contexte de diagnostic. Usage :
+// Calls `expr` (a ProTOOLKIT function returning a ProError) and
+// automatically turns a failure into a creo::ProToolkitError, capturing
+// the expression itself as diagnostic context. Usage:
 //
 //   CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
 //

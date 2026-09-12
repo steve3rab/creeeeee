@@ -109,7 +109,7 @@ public:
   void Resize(int new_size) {
     if (new_size < 0) {
       throw std::invalid_argument(
-          "new_size doit être positif pour creo::Array::Resize");
+          "new_size must be positive for creo::Array::Resize");
     }
     if (new_size > size_) {
       GrowIfNeeded(new_size);
@@ -135,11 +135,11 @@ public:
   void Remove(int index, int n_objects = 1) {
     if (n_objects <= 0) {
       throw std::invalid_argument(
-          "n_objects doit être positif pour creo::Array::Remove");
+          "n_objects must be positive for creo::Array::Remove");
     }
     int remove_at = (index < 0) ? (size_ - n_objects) : index;
     if (remove_at < 0 || remove_at + n_objects > size_) {
-      throw std::out_of_range("plage hors limites pour creo::Array::Remove");
+      throw std::out_of_range("range out of bounds for creo::Array::Remove");
     }
     int tail_count = size_ - (remove_at + n_objects);
     for (int i = 0; i < tail_count; ++i) {
@@ -158,13 +158,13 @@ public:
 
   T &At(int index) {
     if (index < 0 || index >= size_) {
-      throw std::out_of_range("index hors limites pour creo::Array");
+      throw std::out_of_range("index out of range for creo::Array");
     }
     return data_[index];
   }
   const T &At(int index) const {
     if (index < 0 || index >= size_) {
-      throw std::out_of_range("index hors limites pour creo::Array");
+      throw std::out_of_range("index out of range for creo::Array");
     }
     return data_[index];
   }
@@ -202,9 +202,8 @@ private:
     } else {
       if (begin_index < end_index) {
         throw std::logic_error(
-            "creo::Array<T> : impossible d'agrandir le tableau par "
-            "construction par défaut, T n'a pas de constructeur par "
-            "défaut accessible");
+            "creo::Array<T>: cannot grow the array via default "
+            "construction, T has no accessible default constructor");
       }
     }
   }
@@ -223,7 +222,7 @@ private:
   template <typename U> void InsertImpl(int index, U &&value) {
     int insert_at = (index < 0) ? size_ : index;
     if (insert_at > size_) {
-      throw std::out_of_range("index hors limites pour creo::Array::Insert");
+      throw std::out_of_range("index out of range for creo::Array::Insert");
     }
     T temp(std::forward<U>(value));
     GrowIfNeeded(size_ + 1);

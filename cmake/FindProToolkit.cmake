@@ -1,28 +1,29 @@
 #[[
 FindProToolkit.cmake
 
-Module de recherche pour le SDK ProTOOLKIT de Creo Parametric 10.0. Ce SDK
-est fourni par PTC avec l'installation de Creo et n'est PAS redistribué
-dans ce dépôt (licence propriétaire) : ce module se contente de le
-localiser sur la machine qui compile.
+Find module for the Creo Parametric 10.0 ProTOOLKIT SDK. This SDK is
+shipped by PTC with the Creo installation and is NOT redistributed in
+this repository (proprietary license): this module only locates it on
+the machine doing the build.
 
-Variables d'entrée (à définir avant `find_package(ProToolkit)`, soit en
-cache CMake `-DCREO_TOOLKIT_ROOT=...`, soit en variable d'environnement) :
+Input variables (set before `find_package(ProToolkit)`, either as a
+CMake cache variable `-DCREO_TOOLKIT_ROOT=...`, or as an environment
+variable):
 
   CREO_TOOLKIT_ROOT
-      Racine de l'installation du SDK Creo (ex. sous Windows :
-      "C:/Program Files/PTC/Creo 10.0.0.0/Common Files"). Le module cherche
-      ensuite les en-têtes sous "<racine>/protoolkit/includes" et la
-      bibliothèque sous "<racine>/protoolkit/<arch>/obj".
+      Root of the Creo SDK installation (e.g. on Windows:
+      "C:/Program Files/PTC/Creo 10.0.0.0/Common Files"). The module then
+      looks for the headers under "<root>/protoolkit/includes" and the
+      library under "<root>/protoolkit/<arch>/obj".
 
   CREO_TOOLKIT_ARCH
-      Nom du sous-répertoire d'architecture livré par PTC pour la
-      bibliothèque ProTOOLKIT (varie selon la plateforme et la version,
-      ex. x86e_win64 sous Windows 64 bits). Ce module ne devine
-      volontairement pas cette valeur : vérifiez-la dans votre installation
-      locale du SDK sous "<racine>/protoolkit/".
+      Name of the architecture subdirectory shipped by PTC for the
+      ProTOOLKIT library (varies by platform and version, e.g.
+      x86e_win64 on 64-bit Windows). This module deliberately does not
+      guess this value: check it against your local SDK installation
+      under "<root>/protoolkit/".
 
-Variables de sortie :
+Output variables:
 
   ProToolkit_FOUND
   ProToolkit_INCLUDE_DIRS

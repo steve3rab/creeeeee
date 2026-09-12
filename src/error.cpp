@@ -23,12 +23,12 @@ std::string MakeMessage(ErrorCode code, std::string_view context) {
 ProToolkitError::ProToolkitError(ErrorCode code, std::string_view context)
     : std::runtime_error(MakeMessage(code, context)), code_(code) {}
 
-// Table des libellés de l'énum ProError/ProErr officielle (ProError.h,
+// Table of labels for the official ProError/ProErr enum (ProError.h,
 // Creo 10 — "most commonly used Creo Parametric TOOLKIT error statuses").
-// On compare des entiers plutôt que les enumerators eux-mêmes : ceux-ci
-// vivent soit dans le SDK réel (portée globale), soit dans creo::detail::
-// shim (portée namespacée), et les valeurs numériques PTC sont, elles,
-// identiques dans les deux cas.
+// Integers are compared rather than the enumerators themselves: the
+// latter live either in the real SDK (global scope) or in
+// creo::detail::shim (namespaced scope), while the PTC numeric values
+// are identical in both cases.
 std::string ToString(ErrorCode code) {
   switch (static_cast<int>(code)) {
   case 0:
@@ -202,12 +202,12 @@ std::string ToString(ErrorCode code) {
   case -100:
     return "PRO_TK_APP_JLINK_NOT_ALLOWED";
   default:
-    // Code non couvert par l'énum ProError/ProErr connue de ce wrapper
-    // (version de Creo différente, ou code applicatif hors de cette
-    // énumération) : on retombe sur le numéro brut plutôt que d'inventer
-    // un libellé.
+    // Code not covered by the ProError/ProErr enum known to this wrapper
+    // (a different Creo version, or an application-defined code outside
+    // this enum): fall back to the raw number rather than making up a
+    // label.
     return "code #" + std::to_string(static_cast<int>(code)) +
-           " (inconnu de creo::ToString)";
+           " (unknown to creo::ToString)";
   }
 }
 
