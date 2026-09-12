@@ -1,6 +1,7 @@
 #pragma once
 #include "creo/detail/protoolkit_compat.hpp"
 #include "creo/error.hpp"
+#include "creo/object_type.hpp"
 #include "creo/text.hpp"
 
 #include <stdexcept>
@@ -56,13 +57,14 @@ public:
   bool IsValid() const noexcept { return handle_ != nullptr; }
   explicit operator bool() const noexcept { return IsValid(); }
 
-  // The model's name (ProMdlMdlNameGet, which replaces the now-deprecated
-  // ProMdlNameGet in Creo 10). Convenience method: avoids rewriting the
-  // CREO_CHECK + ModelName + .Raw() combo every time, already shown in
-  // examples/hello_creo.cpp. Throws std::logic_error if the handle is
-  // invalid (null), before even attempting the ProTOOLKIT call — a
-  // clearer message than a generic PRO_TK_BAD_INPUTS coming back from the
-  // SDK.
+  // The model's name (ProMdlMdlnameGet, which replaces the now-deprecated
+  // ProMdlNameGet in Creo 10 -- note the lowercase "n" in "Mdlname", see
+  // the note on this trampoline in detail/protoolkit_compat.hpp).
+  // Convenience method: avoids rewriting the CREO_CHECK + ModelName +
+  // .Raw() combo every time, already shown in examples/hello_creo.cpp.
+  // Throws std::logic_error if the handle is invalid (null), before even
+  // attempting the ProTOOLKIT call — a clearer message than a generic
+  // PRO_TK_BAD_INPUTS coming back from the SDK.
   ModelName Name() const {
     if (!IsValid()) {
       throw std::logic_error(
@@ -71,6 +73,19 @@ public:
     ModelName name;
     CREO_CHECK(detail::MdlMdlNameGet(handle_, name.Raw()));
     return name;
+  }
+
+  // The model's type (ProMdlTypeGet) — e.g. MdlType::PRO_MDL_ASSEMBLY,
+  // MdlType::PRO_MDL_PART. Same invalid-handle guard and rationale as
+  // Name() above.
+  MdlType Type() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Type() called on an invalid (null) handle");
+    }
+    MdlType type;
+    CREO_CHECK(detail::MdlTypeGet(handle_, &type));
+    return type;
   }
 
   // Raw handle, for direct calls to ProTOOLKIT functions not (yet)

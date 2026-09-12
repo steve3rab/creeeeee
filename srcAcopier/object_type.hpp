@@ -5,6 +5,8 @@ namespace creo {
 
 using ObjectType = detail::RawObjectType;
 
+using MdlType = detail::RawMdlType;
+
 using Boolean = detail::RawBoolean;
 
 constexpr bool ToBool(Boolean value) noexcept {

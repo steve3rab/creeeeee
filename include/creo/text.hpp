@@ -88,7 +88,7 @@ public:
   }
 
   // Retrieves the buffer content as-is (wide), typically after a
-  // ProTOOLKIT call like CREO_CHECK(ProMdlMdlNameGet(model, name.Raw()));
+  // ProTOOLKIT call like CREO_CHECK(ProMdlMdlnameGet(model, name.Raw()));
   std::wstring ToWString() const { return std::wstring(View()); }
 
   // Retrieves the buffer content converted to UTF-8. Choosing UTF-8 as
@@ -99,7 +99,7 @@ public:
   std::string ToString() const { return detail::ToUtf8(View()); }
 
   // Raw buffer access, to pass directly to ProTOOLKIT C functions, e.g.
-  // ProMdlMdlNameGet(model, name.Raw());
+  // ProMdlMdlnameGet(model, name.Raw());
   wchar_t *Raw() noexcept { return buffer_; }
   const wchar_t *Raw() const noexcept { return buffer_; }
 
@@ -284,7 +284,7 @@ bool operator!=(const char *lhs, const FixedCharString<N> &rhs) noexcept {
 using Name = FixedWString<detail::kNameSize>;
 
 // Corresponds to `ProMdlName` (size PRO_MDLNAME_SIZE = 180): the name of
-// a Creo Parametric model, as returned by ProMdlMdlNameGet (which
+// a Creo Parametric model, as returned by ProMdlMdlnameGet (which
 // replaces the now-deprecated ProMdlNameGet function in Creo 10).
 // WARNING: PTC reserves a much larger size for ProMdlName than for
 // ProName — this is NOT a plain alias of Name.

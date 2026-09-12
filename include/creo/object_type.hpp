@@ -19,6 +19,20 @@ namespace creo {
 using ObjectType = detail::RawObjectType;
 
 // ---------------------------------------------------------------------------
+// MdlType
+// ---------------------------------------------------------------------------
+// Corresponds to `ProMdlType` (ProMdl.h): a narrower classification than
+// ObjectType/ProType, covering only the "model-shaped" object types that
+// ProMdlTypeGet can return (assembly, part, drawing, 3D/2D section,
+// layout, dwgform, mfg, report, markup, diagram, ce_solid, ce_drawing,
+// drw_solid). Each PRO_MDL_* enumerator reuses the exact same integer
+// value as the corresponding PRO_* constant of ObjectType (e.g.
+// PRO_MDL_ASSEMBLY == PRO_ASSEMBLY) — that equivalence comes directly
+// from PTC's own enum definition, not something this wrapper assumes.
+// See ModelHandle::Type() for the convenience method built on this.
+using MdlType = detail::RawMdlType;
+
+// ---------------------------------------------------------------------------
 // Boolean
 // ---------------------------------------------------------------------------
 // Corresponds to `ProBoolean`/`ProBool` (ProToolkit.h, enum ProBooleans:

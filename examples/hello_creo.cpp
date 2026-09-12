@@ -13,12 +13,13 @@
 //     mode and in shim mode (the shim genuinely reimplements a
 //     ProArray's behavior, not just its shape).
 //
-//  3) PrintCurrentModelName(): retrieves the active model's name via a
-//     chain of two ProTOOLKIT calls (ProMdlCurrentGet then
-//     ProMdlMdlNameGet), all inside a single try/catch — illustrates how
-//     CREO_CHECK short-circuits the rest of the block on the first
-//     error. Requires the real SDK (CREO_TOOLKIT_ROOT, see README) to do
-//     anything useful; otherwise main() prints an explanatory message.
+//  3) PrintCurrentModelName(): retrieves the active model's name and type
+//     via ModelHandle::GetCurrent()/Name()/Type() (themselves wrapping
+//     ProMdlCurrentGet/ProMdlMdlnameGet/ProMdlTypeGet), all inside a
+//     single try/catch — illustrates how CREO_CHECK short-circuits the
+//     rest of the block on the first error. Requires the real SDK
+//     (CREO_TOOLKIT_ROOT, see README) to do anything useful; otherwise
+//     main() prints an explanatory message.
 //
 // Technical note: this file only uses std::printf/std::puts (never
 // std::wprintf) for output. Mixing "wide" and "narrow" calls on the same
@@ -134,7 +135,7 @@ void DemonstrateTypes() {
   // Simulates a ProTOOLKIT call that would fail with PRO_TK_BAD_INPUTS
   // (-2), without needing a real call: shows only the ProError ->
   // exception conversion mechanism (works identically for a real call,
-  // e.g.: CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));).
+  // e.g.: CREO_CHECK(ProMdlMdlnameGet(model.Raw(), name.Raw()));).
   try {
     CREO_CHECK(static_cast<creo::ErrorCode>(-2));
   } catch (const creo::ProToolkitError &e) {
@@ -181,13 +182,15 @@ void DemonstrateArray() {
 // ModelHandle::GetCurrent() wraps ProMdlCurrentGet directly: it throws
 // rather than returning null when there is no current model, so unlike
 // PrintCurrentModelName()'s previous version there is no separate
-// `if (!model)` branch to write — a missing model and a ProMdlMdlNameGet
+// `if (!model)` branch to write — a missing model and a ProMdlMdlnameGet
 // failure both land in the same catch below, exactly like a chained
 // CREO_CHECK would.
 bool PrintCurrentModelName() {
   try {
     creo::ModelHandle model = creo::ModelHandle::GetCurrent();
-    std::printf("Active model: %s\n", model.Name().ToString().c_str());
+    std::printf("Active model: %s (type = %d)\n",
+                model.Name().ToString().c_str(),
+                static_cast<int>(model.Type()));
     return true;
 
   } catch (const creo::ProToolkitError &e) {

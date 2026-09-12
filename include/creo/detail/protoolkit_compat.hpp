@@ -57,6 +57,7 @@ using RawObjectType = ::ProType;
 using RawArray = ::ProArray;
 using RawBoolean = ::ProBoolean;
 using RawModelItem = ::ProModelitem;
+using RawMdlType = ::ProMdlType;
 
 // Trampolines to the real ProArray functions: creo::Array<T> (see
 // creo/array.hpp) calls these aliases, never ::ProArrayXxx nor
@@ -81,16 +82,25 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
   return ::ProArrayMaxCountGet(obj_size, max_num_objs);
 }
 
-// Trampoline to ProMdlMdlNameGet (see ModelHandle::Name() in types.hpp),
-// which replaces the now-deprecated ProMdlNameGet in Creo 10.
+// Trampoline to ProMdlMdlnameGet (see ModelHandle::Name() in
+// model_handle.hpp), which replaces the now-deprecated ProMdlNameGet in
+// Creo 10. Note the lowercase "n" in "Mdlname": confirmed by the user
+// from two independent PTC references, not a typo (see
+// protoolkit_shim.hpp for the fuller rationale).
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
-  return ::ProMdlMdlNameGet(model, name_out);
+  return ::ProMdlMdlnameGet(model, name_out);
 }
 
 // Trampoline to ProMdlCurrentGet (see ModelHandle::GetCurrent() in
 // model_handle.hpp).
 inline ProErrorCode MdlCurrentGet(RawMdl *p_mdl) {
   return ::ProMdlCurrentGet(p_mdl);
+}
+
+// Trampoline to ProMdlTypeGet (see ModelHandle::Type() in
+// model_handle.hpp).
+inline ProErrorCode MdlTypeGet(RawMdl model, RawMdlType *p_type) {
+  return ::ProMdlTypeGet(model, p_type);
 }
 
 // Trampoline to ProModelitemNameGet (see ModelItem::Name() in types.hpp).
@@ -146,6 +156,7 @@ using RawObjectType = shim::ProType;
 using RawArray = shim::ProArray;
 using RawBoolean = shim::ProBoolean;
 using RawModelItem = shim::ProModelitem;
+using RawMdlType = shim::ProMdlType;
 
 inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
                                 int reallocation_size, RawArray *p_array) {
@@ -161,10 +172,13 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
   return shim::ProArrayMaxCountGet(obj_size, max_num_objs);
 }
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
-  return shim::ProMdlMdlNameGet(model, name_out);
+  return shim::ProMdlMdlnameGet(model, name_out);
 }
 inline ProErrorCode MdlCurrentGet(RawMdl *p_mdl) {
   return shim::ProMdlCurrentGet(p_mdl);
+}
+inline ProErrorCode MdlTypeGet(RawMdl model, RawMdlType *p_type) {
+  return shim::ProMdlTypeGet(model, p_type);
 }
 inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return shim::ProModelitemNameGet(item, name_out);

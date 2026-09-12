@@ -16,6 +16,7 @@ using RawObjectType = ::ProType;
 using RawArray = ::ProArray;
 using RawBoolean = ::ProBoolean;
 using RawModelItem = ::ProModelitem;
+using RawMdlType = ::ProMdlType;
 
 inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
                                 int reallocation_size, RawArray *p_array) {
@@ -32,11 +33,15 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
 }
 
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
-  return ::ProMdlMdlNameGet(model, name_out);
+  return ::ProMdlMdlnameGet(model, name_out);
 }
 
 inline ProErrorCode MdlCurrentGet(RawMdl *p_mdl) {
   return ::ProMdlCurrentGet(p_mdl);
+}
+
+inline ProErrorCode MdlTypeGet(RawMdl model, RawMdlType *p_type) {
+  return ::ProMdlTypeGet(model, p_type);
 }
 
 inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {

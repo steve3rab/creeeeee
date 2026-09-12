@@ -40,7 +40,7 @@ include/creo/
   types.hpp                       Umbrella header: includes the five below
   text.hpp                        FixedWString/FixedCharString + all text aliases
   constants.hpp                   MaxAssemLevel, ValueUnused, ValueDefault
-  object_type.hpp                 ObjectType, Boolean
+  object_type.hpp                 ObjectType, MdlType, Boolean
   model_handle.hpp                ModelHandle
   model_item.hpp                  ModelItem, Feature, and the rest of the aliases
   array.hpp                       Array<T>: RAII around ProArray
@@ -110,7 +110,7 @@ Excerpt of the part that requires a real Creo session:
 // GetCurrent() wraps CREO_CHECK + ProMdlCurrentGet (see "ModelHandle"
 // below) and throws a ProToolkitError if there is no current model.
 creo::ModelHandle model = creo::ModelHandle::GetCurrent();
-// model.Name() wraps CREO_CHECK + ProMdlMdlNameGet (which replaces
+// model.Name() wraps CREO_CHECK + ProMdlMdlnameGet (which replaces
 // ProMdlNameGet, now deprecated in Creo 10) and throws std::logic_error
 // if the handle is invalid, without even attempting the ProTOOLKIT call.
 creo::ModelName name = model.Name();
@@ -299,18 +299,31 @@ failing outright when there is no current X) — treated as
 `PRO_TK_E_NOT_FOUND`, thrown as a `ProToolkitError` just like any other
 failure here.
 
-Beyond `IsValid()`/`Raw()`/`GetCurrent()`, `ModelHandle` exposes a
-convenience method for the most common case once you have a handle:
+Beyond `IsValid()`/`Raw()`/`GetCurrent()`, `ModelHandle` exposes
+convenience methods for the two most common cases once you have a
+handle:
 
 ```cpp
 creo::ModelHandle model(raw_model);
-creo::ModelName name = model.Name();  // CREO_CHECK(ProMdlMdlNameGet(...)) built in
+creo::ModelName name = model.Name();  // CREO_CHECK(ProMdlMdlnameGet(...)) built in
+creo::MdlType type = model.Type();    // CREO_CHECK(ProMdlTypeGet(...)) built in
+
+if (type == creo::MdlType::PRO_MDL_ASSEMBLY) { /* ... */ }
 ```
 
-`Name()` throws `std::logic_error` (not a `ProToolkitError`) if the
-handle is invalid (null): the error is detected before even attempting
-the ProTOOLKIT call, with a clearer message than a generic
+Both throw `std::logic_error` (not a `ProToolkitError`) if the handle is
+invalid (null): the error is detected before even attempting the
+ProTOOLKIT call, with a clearer message than a generic
 `PRO_TK_BAD_INPUTS` coming back from the SDK.
+
+`creo::MdlType` corresponds to `ProMdlType` (`ProMdl.h`): a narrower
+classification than `ObjectType`/`ProType`, covering only the
+"model-shaped" object types that `ProMdlTypeGet` can return (assembly,
+part, drawing, 3D/2D section, layout, dwgform, mfg, report, markup,
+diagram, ce_solid, ce_drawing, drw_solid). Each `PRO_MDL_*` value reuses
+the exact same integer value as the corresponding `ObjectType` constant
+(e.g. `PRO_MDL_ASSEMBLY == PRO_ASSEMBLY`) — that equivalence comes
+directly from PTC's own enum definition.
 
 Two `ModelHandle` are comparable by equality — they refer to the same
 model if and only if they carry the same underlying ProTOOLKIT handle
@@ -512,11 +525,11 @@ A few "model" values for reference: `PRO_ASSEMBLY` (1), `PRO_PART` (2),
 (33), `PRO_LAYOUT` (19), `PRO_REPORT` (105), `PRO_MARKUP` (116),
 `PRO_DIAGRAM` (121).
 
-One value from the real enum has been omitted: `PRO_TYPE_UNUSED` (defined
-on the PTC side as `= PRO_VALUE_UNUSED`), because `PRO_VALUE_UNUSED` had
-not been provided and its value was not to be guessed. A build with the
-real SDK gets it normally via the PTC header; only shim mode (no SDK)
-does not offer it.
+`PRO_TYPE_UNUSED` (defined on the PTC side as `= PRO_VALUE_UNUSED`) is
+included too, in both modes: it was initially left out of shim mode
+since `PRO_VALUE_UNUSED` had not been provided yet and its value was not
+to be guessed, but has since been confirmed as -1 (see `ValueUnused`
+above).
 
 ### Available types (`include/creo/types.hpp`)
 
@@ -530,7 +543,7 @@ ProTOOLKIT text types since Pro/ENGINEER Wildfire:
 | C++ type             | ProTOOLKIT buffer      | Size | Usage                                    |
 |----------------------|------------------------|-----:|-------------------------------------------|
 | `Name`               | `ProName`              |   32 | Generic name (feature, parameter, ...)   |
-| `ModelName`          | `ProMdlName`           |  180 | A model's name (ProMdlMdlNameGet)         |
+| `ModelName`          | `ProMdlName`           |  180 | A model's name (ProMdlMdlnameGet)         |
 | `Line`               | `ProLine`              |   81 | Line of text (messages)                   |
 | `Path`               | `ProPath`              |  260 | File / directory path                     |
 | `Comment`            | `ProComment`           |  256 | Comment                                   |

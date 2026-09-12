@@ -187,13 +187,17 @@ enum ProError : int {
 // The PTC SDK exposes both names for the same type.
 using ProErr = ProError;
 
-// Reproduces the signature of ProMdlMdlNameGet (successor of the
-// now-deprecated ProMdlNameGet), so that ModelHandle::Name() (types.hpp)
-// compiles in shim mode. Without a real Creo session, there is nothing
-// meaningful to return: a valid ModelHandle cannot exist outside the
-// real SDK anyway (no shim function ever produces a non-null ProMdl); so
-// this stub always fails rather than inventing a model name.
-inline ProError ProMdlMdlNameGet(ProMdl model, wchar_t *name_out) {
+// Reproduces the signature of ProMdlMdlnameGet (successor of the
+// now-deprecated ProMdlNameGet; note the lowercase "n" in "Mdlname" --
+// confirmed by the user from two independent PTC references, consistent
+// with ProMenufileName/ProMenubuttonName elsewhere in this file, which
+// already showed PTC does not always capitalize compound-word
+// boundaries), so that ModelHandle::Name() (model_handle.hpp) compiles
+// in shim mode. Without a real Creo session, there is nothing meaningful
+// to return: a valid ModelHandle cannot exist outside the real SDK
+// anyway (no shim function ever produces a non-null ProMdl); so this
+// stub always fails rather than inventing a model name.
+inline ProError ProMdlMdlnameGet(ProMdl model, wchar_t *name_out) {
   if (model == nullptr || name_out == nullptr) {
     return PRO_TK_BAD_INPUTS;
   }
@@ -217,12 +221,12 @@ inline ProError ProMdlCurrentGet(ProMdl *p_mdl) {
 // part of it, alongside features, curves, simulation/mesh/animation
 // entities, etc. Provided by the user from the real header.
 //
-// PRO_TYPE_UNUSED (= PRO_VALUE_UNUSED in the real enum) is omitted here:
-// PRO_VALUE_UNUSED had not been provided at the time and its value was
-// not to be guessed. A build with the real SDK gets it normally via the
-// PTC header; in shim mode, ProObjectType::PRO_TYPE_UNUSED therefore does
-// not exist.
+// PRO_TYPE_UNUSED (= PRO_VALUE_UNUSED in the real enum) was initially
+// omitted here, since PRO_VALUE_UNUSED had not been provided yet and its
+// value was not to be guessed; it has since been confirmed as -1 (see
+// kValueUnused above, and creo::ValueUnused), so it is included below.
 enum ProType : int {
+  PRO_TYPE_UNUSED = kValueUnused,
   PRO_TYPE_DIR = -5,
   PRO_TYPE_INVALID = -2,
   PRO_ASSEMBLY = 1,
@@ -526,6 +530,51 @@ enum ProType : int {
   PRO_ASM_LOG_SRF = 74360,
 };
 
+// Faithful reproduction of `ProMdlType` (ProMdl.h, Creo 10), as given by
+// the user: a narrower classification than `ProType` above, covering
+// only the "model-shaped" object types that ProMdlTypeGet can return
+// (assembly, part, drawing, ...). Each enumerator reuses the exact same
+// integer value as the corresponding ProType constant (e.g.
+// PRO_MDL_ASSEMBLY == PRO_ASSEMBLY) -- this is how PTC itself defines
+// it, not a coincidence this wrapper is relying on. See creo::MdlType
+// (object_type.hpp) for the C++ side.
+enum ProMdlType : int {
+  PRO_MDL_UNUSED = PRO_TYPE_UNUSED,
+  PRO_MDL_ASSEMBLY = PRO_ASSEMBLY,
+  PRO_MDL_PART = PRO_PART,
+  PRO_MDL_DRAWING = PRO_DRAWING,
+  PRO_MDL_3DSECTION = PRO_3DSECTION,
+  PRO_MDL_2DSECTION = PRO_2DSECTION,
+  // (*.lay file) Notebook model. Formerly known as Layout model.
+  PRO_MDL_LAYOUT = PRO_LAYOUT,
+  PRO_MDL_DWGFORM = PRO_DWGFORM,
+  PRO_MDL_MFG = PRO_MFG,
+  PRO_MDL_REPORT = PRO_REPORT,
+  PRO_MDL_MARKUP = PRO_MARKUP,
+  PRO_MDL_DIAGRAM = PRO_DIAGRAM,
+  // Read-only per PTC: passing this back to Creo may cause unpredictable
+  // behavior.
+  PRO_MDL_CE_SOLID = PRO_CE_SOLID,
+  PRO_MDL_CE_DRAWING = PRO_CE_DRAWING, // reserved for internal use
+  PRO_MDL_DRW_SOLID = PRO_DRW_SOLID,   // reserved for internal use
+};
+
+// Reproduces the signature of ProMdlTypeGet, for ModelHandle::Type()
+// (model_handle.hpp) to compile in shim mode. Honors the documented
+// contract given by the user precisely: "if the function fails, [the
+// out-param] is set to PRO_TYPE_UNUSED" -- for every failure path here,
+// not just some of them.
+inline ProError ProMdlTypeGet(ProMdl model, ProMdlType *p_type) {
+  if (p_type == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  *p_type = static_cast<ProMdlType>(PRO_TYPE_UNUSED);
+  if (model == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
 // Faithful reproduction of `pro_model_item` (ProObjects.h, Creo 10):
 // PTC gives this exact same 3-field struct roughly thirty different
 // typedef names — ProGeomitem, ProFeature, ProDimension, ProNote,
@@ -571,7 +620,7 @@ using ProTable = ProModelitem;
 // Type()/Id()/Owner() (plain field reads, valid on any ProModelitem value
 // including one built by hand in a test), a name lookup genuinely needs a
 // real model database: this stub always fails rather than inventing a
-// name, exactly like ProMdlMdlNameGet's stub above.
+// name, exactly like ProMdlMdlnameGet's stub above.
 inline ProError ProModelitemNameGet(ProModelitem *p_handle,
                                      wchar_t *name_out) {
   if (p_handle == nullptr || name_out == nullptr) {
