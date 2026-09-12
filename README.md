@@ -37,7 +37,12 @@ executable built in this mode obviously cannot drive a real Creo session.
 
 ```
 include/creo/
-  types.hpp                       Base types: Name, Line, Path, ModelHandle
+  types.hpp                       Umbrella header: includes the five below
+  text.hpp                        FixedWString/FixedCharString + all text aliases
+  constants.hpp                   MaxAssemLevel, ValueUnused, ValueDefault
+  object_type.hpp                 ObjectType, Boolean
+  model_handle.hpp                ModelHandle
+  model_item.hpp                  ModelItem and its aliases (GeomItem, Feature, ...)
   array.hpp                       Array<T>: RAII around ProArray
   error.hpp                       ProToolkitError + CREO_CHECK macro
   detail/protoolkit_compat.hpp    Real SDK / shim switch
@@ -49,14 +54,22 @@ examples/
 cmake/
   FindProToolkit.cmake            Locates the installed ProTOOLKIT SDK
 srcAcopier/
-  types.hpp, array.hpp,           Flat version (no subfolders, no
-  error.hpp,                      comments) to drop into a real
-  protoolkit_compat.hpp,          ProTOOLKIT project (SDK + license
-  utf8.hpp, error.cpp             available): CREO_WRAPPER_HAS_REAL_SDK
-                                   is hardcoded to 1 there (no shim
-                                   mode, the real SDK is required to
-                                   build).
+  types.hpp, text.hpp,            Flat version (no subfolders, no
+  constants.hpp,                  comments) to drop into a real
+  object_type.hpp,                ProTOOLKIT project (SDK + license
+  model_handle.hpp,                available): CREO_WRAPPER_HAS_REAL_SDK
+  model_item.hpp, array.hpp,      is hardcoded to 1 there (no shim
+  error.hpp,                      mode, the real SDK is required to
+  protoolkit_compat.hpp,          build). Same file split as
+  utf8.hpp, error.cpp             include/creo/ above.
 ```
+
+Existing code that does `#include "creo/types.hpp"` keeps working exactly
+as before: it is now a thin umbrella pulling in `text.hpp`/
+`constants.hpp`/`object_type.hpp`/`model_handle.hpp`/`model_item.hpp`.
+New code may include only the specific header(s) it needs instead — this
+split is a pure reorganization for cohesion (each header covers one
+concern), it changes no type, name, or behavior.
 
 ## Building
 
