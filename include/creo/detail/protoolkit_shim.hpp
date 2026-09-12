@@ -200,6 +200,17 @@ inline ProError ProMdlMdlNameGet(ProMdl model, wchar_t *name_out) {
   return PRO_TK_NOT_IMPLEMENTED;
 }
 
+// Reproduces the signature of ProMdlCurrentGet, for
+// ModelHandle::GetCurrent() (model_handle.hpp) to compile in shim mode.
+// There is never a "current model" without a real Creo session, so this
+// always fails too, for the same reason as the stub above.
+inline ProError ProMdlCurrentGet(ProMdl *p_mdl) {
+  if (p_mdl == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
 // Faithful reproduction of `ProType` (struct pro_obj_types,
 // ProObjects.h, Creo 10): the broad Creo database object type — models
 // (PRO_PART, PRO_ASSEMBLY, PRO_DRAWING, PRO_MFG, ...) are only a small

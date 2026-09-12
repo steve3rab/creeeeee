@@ -35,6 +35,10 @@ inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
   return ::ProMdlMdlNameGet(model, name_out);
 }
 
+inline ProErrorCode MdlCurrentGet(RawMdl *p_mdl) {
+  return ::ProMdlCurrentGet(p_mdl);
+}
+
 inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return ::ProModelitemNameGet(item, name_out);
 }

@@ -178,23 +178,15 @@ void DemonstrateArray() {
 // Returns false (and prints why) if no model is active or if a
 // ProTOOLKIT call fails.
 //
-// Shows how CREO_CHECK works on ProMdlCurrentGet (output via pointer,
-// hence the `&`), then on ModelHandle::Name(), which wraps both the
-// handle validity check and the ProMdlMdlNameGet call (which replaces
-// ProMdlNameGet, now deprecated in Creo 10). If ProMdlCurrentGet fails,
-// Name() is never reached: the exception jumps straight to the catch,
-// with no intermediate `if` to write by hand.
+// ModelHandle::GetCurrent() wraps ProMdlCurrentGet directly: it throws
+// rather than returning null when there is no current model, so unlike
+// PrintCurrentModelName()'s previous version there is no separate
+// `if (!model)` branch to write — a missing model and a ProMdlMdlNameGet
+// failure both land in the same catch below, exactly like a chained
+// CREO_CHECK would.
 bool PrintCurrentModelName() {
   try {
-    creo::detail::RawMdl raw_model = nullptr;
-    CREO_CHECK(ProMdlCurrentGet(&raw_model));
-
-    creo::ModelHandle model(raw_model);
-    if (!model) {
-      std::puts("No active model in the Creo session.");
-      return false;
-    }
-
+    creo::ModelHandle model = creo::ModelHandle::GetCurrent();
     std::printf("Active model: %s\n", model.Name().ToString().c_str());
     return true;
 

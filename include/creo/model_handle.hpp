@@ -21,6 +21,38 @@ public:
   ModelHandle() noexcept : handle_(nullptr) {}
   explicit ModelHandle(detail::RawMdl handle) noexcept : handle_(handle) {}
 
+  // The model currently active in the Creo session (ProMdlCurrentGet).
+  // Throws a ProToolkitError if there is none (e.g. no model loaded, or
+  // this is not running inside a real Creo session at all — shim builds
+  // never have a current model). This wraps only ProMdlCurrentGet
+  // itself: it does not fall back to the current window's model, nor
+  // substitute anything for an active sub-solid of an assembly — those
+  // are application-level policies, not something this library should
+  // decide on your behalf. Build that fallback in your own code on top
+  // of this method if you need it, the way userMdlCurrentGet-style
+  // helpers commonly do in ProTOOLKIT applications.
+  //
+  // Defensive null check: confirmed by testing against this wrapper's
+  // own real-SDK-mode test stand-in for ProMdlCurrentGet, some ProTOOLKIT
+  // "current X" getters can report success with a null/sentinel result
+  // rather than failing outright when there is no current X. Treated the
+  // same as an outright failure here, as PRO_TK_E_NOT_FOUND (the code
+  // that already means exactly this in the real ProError enum) — not a
+  // fabricated code, just this wrapper's own choice of which existing
+  // code to attach to a case the raw call itself did not flag as an
+  // error. Without this check, the caller would get an invalid
+  // ModelHandle out of GetCurrent() with no exception at all, only
+  // finding out from a confusing failure at the next call that uses it.
+  static ModelHandle GetCurrent() {
+    detail::RawMdl raw_mdl = nullptr;
+    CREO_CHECK(detail::MdlCurrentGet(&raw_mdl));
+    if (raw_mdl == nullptr) {
+      throw ProToolkitError(static_cast<ErrorCode>(-4), // PRO_TK_E_NOT_FOUND
+                             "ProMdlCurrentGet (no current model)");
+    }
+    return ModelHandle(raw_mdl);
+  }
+
   bool IsValid() const noexcept { return handle_ != nullptr; }
   explicit operator bool() const noexcept { return IsValid(); }
 

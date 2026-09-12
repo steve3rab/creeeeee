@@ -87,6 +87,12 @@ inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
   return ::ProMdlMdlNameGet(model, name_out);
 }
 
+// Trampoline to ProMdlCurrentGet (see ModelHandle::GetCurrent() in
+// model_handle.hpp).
+inline ProErrorCode MdlCurrentGet(RawMdl *p_mdl) {
+  return ::ProMdlCurrentGet(p_mdl);
+}
+
 // Trampoline to ProModelitemNameGet (see ModelItem::Name() in types.hpp).
 inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return ::ProModelitemNameGet(item, name_out);
@@ -156,6 +162,9 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
 }
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
   return shim::ProMdlMdlNameGet(model, name_out);
+}
+inline ProErrorCode MdlCurrentGet(RawMdl *p_mdl) {
+  return shim::ProMdlCurrentGet(p_mdl);
 }
 inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return shim::ProModelitemNameGet(item, name_out);

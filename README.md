@@ -107,10 +107,9 @@ Excerpt of the part that requires a real Creo session:
 #include "creo/error.hpp"
 #include "creo/types.hpp"
 
-creo::detail::RawMdl raw_model = nullptr;
-CREO_CHECK(ProMdlCurrentGet(&raw_model));
-
-creo::ModelHandle model(raw_model);
+// GetCurrent() wraps CREO_CHECK + ProMdlCurrentGet (see "ModelHandle"
+// below) and throws a ProToolkitError if there is no current model.
+creo::ModelHandle model = creo::ModelHandle::GetCurrent();
 // model.Name() wraps CREO_CHECK + ProMdlMdlNameGet (which replaces
 // ProMdlNameGet, now deprecated in Creo 10) and throws std::logic_error
 // if the handle is invalid, without even attempting the ProTOOLKIT call.
@@ -280,8 +279,28 @@ documented ones.
 
 ### ModelHandle
 
-Beyond `IsValid()`/`Raw()`, `ModelHandle` exposes a convenience method for
-the most common case:
+`ModelHandle::GetCurrent()` retrieves the model currently active in the
+Creo session (`ProMdlCurrentGet`):
+
+```cpp
+creo::ModelHandle model = creo::ModelHandle::GetCurrent();
+```
+
+It wraps only `ProMdlCurrentGet` itself: it does **not** fall back to the
+current window's model, nor substitute an active sub-solid for an
+assembly — those are application-level policies (commonly seen in
+`userMdlCurrentGet`-style helpers across ProTOOLKIT codebases), not
+something this library should decide on your behalf. Build that fallback
+in your own code on top of this method if you need it. It also
+defensively checks for a null result even after a "successful" call
+(confirmed necessary while testing this method: some ProTOOLKIT "current
+X" getters can report success with a null/sentinel result rather than
+failing outright when there is no current X) — treated as
+`PRO_TK_E_NOT_FOUND`, thrown as a `ProToolkitError` just like any other
+failure here.
+
+Beyond `IsValid()`/`Raw()`/`GetCurrent()`, `ModelHandle` exposes a
+convenience method for the most common case once you have a handle:
 
 ```cpp
 creo::ModelHandle model(raw_model);
