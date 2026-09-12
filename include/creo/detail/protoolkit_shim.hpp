@@ -56,6 +56,19 @@ constexpr int kFamTabFieldNameSize = kPathSize;
 constexpr int kFamilyMdlNameSize = kMdlNameSize + kMdlNameSize + 2;
 constexpr int kFamilyNameSize = kNameSize + kNameSize + 2;
 
+// PRO_VALUE_UNUSED : sentinelle "valeur non utilisée"/"en fin de tableau"
+// employée dans de nombreuses signatures ProTOOLKIT (déjà rencontrée dans
+// ProArray.h : "si index < 0 (PRO_VALUE_UNUSED), ajoute en fin de
+// tableau"). AVERTISSEMENT : sa valeur exacte (-1) n'a PAS été vérifiée
+// sur une page ProTOOLKIT primaire dans cette session — support.ptc.com
+// est bloqué par la politique réseau de l'environnement où ce wrapper a
+// été développé. -1 vient de résultats de recherche web secondaires
+// convergents et reste cohérent avec la documentation ProArray.h ("toute
+// valeur négative"), mais n'a pas le même niveau de confiance que les
+// autres constantes de ce fichier (fournies directement par l'utilisateur
+// à partir des en-têtes réels). À corriger si vous disposez du SDK.
+constexpr int kValueUnused = -1;
+
 // Handle de modèle Creo (ProMdl) : un pointeur opaque, jamais déréférencé
 // par le code appelant. Seul ProTOOLKIT connaît la structure pointée ; on
 // se contente ici de préserver la sémantique "pointeur opaque distinct".
@@ -163,6 +176,20 @@ enum ProError : int {
 
 // Le SDK PTC expose les deux noms pour le même type.
 using ProErr = ProError;
+
+// Reproduit la signature de ProMdlMdlNameGet (successeur de l'ancienne
+// ProMdlNameGet dépréciée), pour que ModelHandle::Name() (types.hpp)
+// compile en mode shim. Sans session Creo réelle, il n'y a rien de
+// sensé à renvoyer : un ModelHandle valide ne peut de toute façon pas
+// exister hors SDK réel (aucune fonction shim ne produit de ProMdl non
+// nul) ; ce stub échoue donc systématiquement plutôt que d'inventer un
+// nom de modèle.
+inline ProError ProMdlMdlNameGet(ProMdl model, wchar_t *name_out) {
+  if (model == nullptr || name_out == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
 
 // Reproduction fidèle de `ProType` (struct pro_obj_types, ProObjects.h,
 // Creo 10) : le type d'objet de base de données Creo au sens large — les

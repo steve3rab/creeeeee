@@ -28,6 +28,10 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
   return ::ProArrayMaxCountGet(obj_size, max_num_objs);
 }
 
+inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
+  return ::ProMdlMdlNameGet(model, name_out);
+}
+
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;
 inline constexpr int kCommentSize = PRO_COMMENT_SIZE;
@@ -43,6 +47,8 @@ inline constexpr int kFeatRefKeySize = PRO_FEATREF_KEY_SIZE;
 inline constexpr int kMacroSize = PRO_MACRO_SIZE;
 
 inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
+
+inline constexpr int kValueUnused = PRO_VALUE_UNUSED;
 
 inline constexpr int kFileMdlNameSize =
     kMdlNameSize + kMdlExtensionSize + kVersionSize;

@@ -1,8 +1,10 @@
 #pragma once
+#include "error.hpp"
 #include "protoolkit_compat.hpp"
 #include "utf8.hpp"
 
 #include <cstddef>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -47,11 +49,13 @@ public:
                            : kCapacity;
   }
 
-  std::wstring ToWString() const { return std::wstring(buffer_, Length()); }
-
-  std::string ToString() const {
-    return detail::ToUtf8(std::wstring_view(buffer_, Length()));
+  std::wstring_view View() const noexcept {
+    return std::wstring_view(buffer_, Length());
   }
+
+  std::wstring ToWString() const { return std::wstring(View()); }
+
+  std::string ToString() const { return detail::ToUtf8(View()); }
 
   wchar_t *Raw() noexcept { return buffer_; }
   const wchar_t *Raw() const noexcept { return buffer_; }
@@ -62,6 +66,49 @@ public:
 private:
   wchar_t buffer_[kCapacity];
 };
+
+template <std::size_t N, std::size_t M>
+bool operator==(const FixedWString<N> &lhs,
+                const FixedWString<M> &rhs) noexcept {
+  return lhs.View() == rhs.View();
+}
+template <std::size_t N, std::size_t M>
+bool operator!=(const FixedWString<N> &lhs,
+                const FixedWString<M> &rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator==(const FixedWString<N> &lhs, std::wstring_view rhs) noexcept {
+  return lhs.View() == rhs;
+}
+template <std::size_t N>
+bool operator==(std::wstring_view lhs, const FixedWString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedWString<N> &lhs, std::wstring_view rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(std::wstring_view lhs, const FixedWString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
+template <std::size_t N>
+bool operator==(const FixedWString<N> &lhs, const wchar_t *rhs) noexcept {
+  return lhs.View() == std::wstring_view(rhs);
+}
+template <std::size_t N>
+bool operator==(const wchar_t *lhs, const FixedWString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedWString<N> &lhs, const wchar_t *rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(const wchar_t *lhs, const FixedWString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
 
 template <std::size_t N> class FixedCharString {
 public:
@@ -93,7 +140,11 @@ public:
                            : kCapacity;
   }
 
-  std::string ToString() const { return std::string(buffer_, Length()); }
+  std::string_view View() const noexcept {
+    return std::string_view(buffer_, Length());
+  }
+
+  std::string ToString() const { return std::string(View()); }
 
   char *Raw() noexcept { return buffer_; }
   const char *Raw() const noexcept { return buffer_; }
@@ -105,6 +156,53 @@ private:
   char buffer_[kCapacity];
 };
 
+template <std::size_t N, std::size_t M>
+bool operator==(const FixedCharString<N> &lhs,
+                const FixedCharString<M> &rhs) noexcept {
+  return lhs.View() == rhs.View();
+}
+template <std::size_t N, std::size_t M>
+bool operator!=(const FixedCharString<N> &lhs,
+                const FixedCharString<M> &rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator==(const FixedCharString<N> &lhs,
+                std::string_view rhs) noexcept {
+  return lhs.View() == rhs;
+}
+template <std::size_t N>
+bool operator==(std::string_view lhs,
+                const FixedCharString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedCharString<N> &lhs,
+                std::string_view rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(std::string_view lhs,
+                const FixedCharString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
+template <std::size_t N>
+bool operator==(const FixedCharString<N> &lhs, const char *rhs) noexcept {
+  return lhs.View() == std::string_view(rhs);
+}
+template <std::size_t N>
+bool operator==(const char *lhs, const FixedCharString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedCharString<N> &lhs, const char *rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(const char *lhs, const FixedCharString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
+
 using Name = FixedWString<detail::kNameSize>;
 
 using ModelName = FixedWString<detail::kMdlNameSize>;
@@ -112,6 +210,13 @@ using ModelName = FixedWString<detail::kMdlNameSize>;
 using Line = FixedWString<detail::kLineSize>;
 
 using Path = FixedWString<detail::kPathSize>;
+
+inline std::filesystem::path ToFilesystemPath(const Path &path) {
+  return std::filesystem::path(path.View());
+}
+inline Path PathFromFilesystem(const std::filesystem::path &fs_path) {
+  return Path(fs_path.wstring());
+}
 
 using Comment = FixedWString<detail::kCommentSize>;
 
@@ -126,6 +231,8 @@ using VersionSuffix = FixedWString<detail::kVersionSize>;
 using ModelExtension = FixedWString<detail::kMdlExtensionSize>;
 
 inline constexpr int MaxAssemLevel = detail::kMaxAssemLevel;
+
+inline constexpr int ValueUnused = detail::kValueUnused;
 
 using Macro = FixedWString<detail::kMacroSize>;
 
@@ -163,10 +270,29 @@ public:
   bool IsValid() const noexcept { return handle_ != nullptr; }
   explicit operator bool() const noexcept { return IsValid(); }
 
+  ModelName Name() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Name() appelé sur un handle invalide (nul)");
+    }
+    ModelName name;
+    CREO_CHECK(detail::MdlMdlNameGet(handle_, name.Raw()));
+    return name;
+  }
+
   detail::RawMdl Raw() const noexcept { return handle_; }
 
 private:
   detail::RawMdl handle_;
 };
+
+inline bool operator==(const ModelHandle &lhs,
+                        const ModelHandle &rhs) noexcept {
+  return lhs.Raw() == rhs.Raw();
+}
+inline bool operator!=(const ModelHandle &lhs,
+                        const ModelHandle &rhs) noexcept {
+  return !(lhs == rhs);
+}
 
 }

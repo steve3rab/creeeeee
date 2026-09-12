@@ -31,6 +31,7 @@
 #include "creo/types.hpp"
 
 #include <cstdio>
+#include <filesystem>
 #include <stdexcept>
 
 namespace {
@@ -61,6 +62,34 @@ void DemonstrateTypes() {
   // sont pas wide (ProCharName, ProMenuName, ProMenubuttonName, ...).
   creo::CharName menu_entry("EDIT_FEATURE");
   std::printf("CharName : %s\n", menu_entry.ToString().c_str());
+
+  std::puts("\n--- Comparaisons, View() et interop std::filesystem ---");
+
+  // Comparaison par contenu, y compris contre un littéral wide : voir le
+  // README ("Comparaisons, View() et interopérabilité") pour l'ambiguïté
+  // de résolution de surcharge que ces opérateurs évitent.
+  creo::Name same_part(L"engrenage_01");
+  std::printf("part_name == same_part : %s\n",
+              part_name == same_part ? "oui" : "non");
+  std::printf("part_name == L\"engrenage_01\" : %s\n",
+              part_name == L"engrenage_01" ? "oui" : "non");
+
+  // View() : accès sans copie au contenu (contrairement à ToWString(),
+  // qui alloue une nouvelle std::wstring à chaque appel). ends_with() est
+  // du C++20 : ce wrapper visant le C++17, on compare via substr/compare.
+  std::wstring_view view = file_path.View();
+  constexpr std::wstring_view kExt = L".prt";
+  bool ends_with_prt =
+      view.size() >= kExt.size() &&
+      view.compare(view.size() - kExt.size(), kExt.size(), kExt) == 0;
+  std::printf("file_path se termine par .prt : %s\n",
+              ends_with_prt ? "oui" : "non");
+
+  // Path <-> std::filesystem::path.
+  std::filesystem::path fs_path = creo::ToFilesystemPath(file_path);
+  creo::Path round_trip = creo::PathFromFilesystem(fs_path / ".." / "autre.prt");
+  std::printf("Round-trip filesystem::path : %s\n",
+              round_trip.ToString().c_str());
 
   std::puts("\n--- Gestion d'erreurs : CREO_CHECK / ProToolkitError ---");
 
@@ -111,10 +140,11 @@ void DemonstrateArray() {
 // Retourne false (et affiche le motif) si aucun modèle n'est actif ou si
 // un appel ProTOOLKIT échoue.
 //
-// Montre le fonctionnement de CREO_CHECK sur un enchaînement de deux
-// appels : ProMdlCurrentGet (sortie via pointeur, d'où le `&`) puis
-// ProMdlMdlNameGet (sortie via buffer, donc `.Raw()` sans `&`). Si le
-// premier échoue, le second n'est jamais atteint : l'exception saute
+// Montre le fonctionnement de CREO_CHECK sur ProMdlCurrentGet (sortie via
+// pointeur, d'où le `&`), puis de ModelHandle::Name() qui enveloppe à la
+// fois la vérification de validité du handle et l'appel ProMdlMdlNameGet
+// (qui remplace ProMdlNameGet, désormais dépréciée en Creo 10). Si
+// ProMdlCurrentGet échoue, Name() n'est jamais atteint : l'exception saute
 // directement au catch, sans `if` intermédiaire à écrire soi-même.
 bool PrintCurrentModelName() {
   try {
@@ -127,11 +157,7 @@ bool PrintCurrentModelName() {
       return false;
     }
 
-    creo::ModelName name;
-    // ProMdlMdlNameGet remplace ProMdlNameGet, désormais dépréciée en Creo 10.
-    CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
-
-    std::printf("Modèle actif : %s\n", name.ToString().c_str());
+    std::printf("Modèle actif : %s\n", model.Name().ToString().c_str());
     return true;
 
   } catch (const creo::ProToolkitError &e) {

@@ -1,8 +1,10 @@
 #pragma once
 #include "creo/detail/protoolkit_compat.hpp"
 #include "creo/detail/utf8.hpp"
+#include "creo/error.hpp"
 
 #include <cstddef>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -78,18 +80,24 @@ public:
                            : kCapacity;
   }
 
+  // Vue sur le contenu actuel, sans copie. Utile pour comparer ou passer
+  // la valeur à une API attendant un std::wstring_view sans payer le prix
+  // d'une allocation (ToWString() en construit une nouvelle à chaque
+  // appel).
+  std::wstring_view View() const noexcept {
+    return std::wstring_view(buffer_, Length());
+  }
+
   // Récupère le contenu du buffer tel quel (wide), typiquement après un
   // appel ProTOOLKIT du type CREO_CHECK(ProMdlMdlNameGet(model, name.Raw()));
-  std::wstring ToWString() const { return std::wstring(buffer_, Length()); }
+  std::wstring ToWString() const { return std::wstring(View()); }
 
   // Récupère le contenu du buffer converti en UTF-8. Le choix de l'UTF-8
   // comme représentation std::string est délibéré : la taille de wchar_t
   // (donc son encodage implicite) diffère entre Windows (UTF-16) et
   // Linux/macOS (UTF-32), l'UTF-8 reste la seule représentation stable des
   // deux côtés (voir creo/detail/utf8.hpp).
-  std::string ToString() const {
-    return detail::ToUtf8(std::wstring_view(buffer_, Length()));
-  }
+  std::string ToString() const { return detail::ToUtf8(View()); }
 
   // Accès au buffer brut, pour passer directement aux fonctions C
   // ProTOOLKIT, ex : ProMdlMdlNameGet(model, name.Raw());
@@ -104,6 +112,66 @@ public:
 private:
   wchar_t buffer_[kCapacity];
 };
+
+// Comparaisons par contenu, entre deux FixedWString (même capacité ou
+// non — comparer un Name et un ModelName a un sens) ou contre un
+// std::wstring_view (donc aussi un std::wstring, converti implicitement).
+// Sans ces opérateurs, comparer deux valeurs obligerait à passer par
+// .ToWString() des deux côtés à chaque fois.
+//
+// Les surcharges en `const wchar_t*` ne sont PAS redondantes avec celles
+// en std::wstring_view : FixedWString a par ailleurs un operator
+// wchar_t*() implicite (nécessaire pour l'interop directe avec les
+// fonctions C ProTOOLKIT). Sans une surcharge exacte en const wchar_t*,
+// comparer contre un littéral (`name == L"texte"`) serait AMBIGU pour le
+// compilateur entre convertir `name` en pointeur puis comparer les
+// pointeurs (operator== intégré, qui compare des ADRESSES — le mauvais
+// résultat, silencieusement) et convertir le littéral en wstring_view
+// (notre operator==, qui compare le contenu) : les deux conversions ont
+// le même rang. La surcharge exacte lève l'ambiguïté en faveur de la
+// bonne comparaison, par contenu.
+template <std::size_t N, std::size_t M>
+bool operator==(const FixedWString<N> &lhs,
+                const FixedWString<M> &rhs) noexcept {
+  return lhs.View() == rhs.View();
+}
+template <std::size_t N, std::size_t M>
+bool operator!=(const FixedWString<N> &lhs,
+                const FixedWString<M> &rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator==(const FixedWString<N> &lhs, std::wstring_view rhs) noexcept {
+  return lhs.View() == rhs;
+}
+template <std::size_t N>
+bool operator==(std::wstring_view lhs, const FixedWString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedWString<N> &lhs, std::wstring_view rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(std::wstring_view lhs, const FixedWString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
+template <std::size_t N>
+bool operator==(const FixedWString<N> &lhs, const wchar_t *rhs) noexcept {
+  return lhs.View() == std::wstring_view(rhs);
+}
+template <std::size_t N>
+bool operator==(const wchar_t *lhs, const FixedWString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedWString<N> &lhs, const wchar_t *rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(const wchar_t *lhs, const FixedWString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
 
 // ---------------------------------------------------------------------------
 // FixedCharString<N>
@@ -144,7 +212,11 @@ public:
                            : kCapacity;
   }
 
-  std::string ToString() const { return std::string(buffer_, Length()); }
+  std::string_view View() const noexcept {
+    return std::string_view(buffer_, Length());
+  }
+
+  std::string ToString() const { return std::string(View()); }
 
   char *Raw() noexcept { return buffer_; }
   const char *Raw() const noexcept { return buffer_; }
@@ -155,6 +227,56 @@ public:
 private:
   char buffer_[kCapacity];
 };
+
+template <std::size_t N, std::size_t M>
+bool operator==(const FixedCharString<N> &lhs,
+                const FixedCharString<M> &rhs) noexcept {
+  return lhs.View() == rhs.View();
+}
+template <std::size_t N, std::size_t M>
+bool operator!=(const FixedCharString<N> &lhs,
+                const FixedCharString<M> &rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator==(const FixedCharString<N> &lhs,
+                std::string_view rhs) noexcept {
+  return lhs.View() == rhs;
+}
+template <std::size_t N>
+bool operator==(std::string_view lhs,
+                const FixedCharString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedCharString<N> &lhs,
+                std::string_view rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(std::string_view lhs,
+                const FixedCharString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
+// Surcharges exactes en const char* : même raison que pour FixedWString
+// et const wchar_t* ci-dessus (lève l'ambiguïté avec l'operator char*()
+// implicite de FixedCharString face à un littéral "texte").
+template <std::size_t N>
+bool operator==(const FixedCharString<N> &lhs, const char *rhs) noexcept {
+  return lhs.View() == std::string_view(rhs);
+}
+template <std::size_t N>
+bool operator==(const char *lhs, const FixedCharString<N> &rhs) noexcept {
+  return rhs == lhs;
+}
+template <std::size_t N>
+bool operator!=(const FixedCharString<N> &lhs, const char *rhs) noexcept {
+  return !(lhs == rhs);
+}
+template <std::size_t N>
+bool operator!=(const char *lhs, const FixedCharString<N> &rhs) noexcept {
+  return !(rhs == lhs);
+}
 
 // Correspond à `ProName` (taille PRO_NAME_SIZE = 32) : "tout autre nom
 // Creo Parametric" (feature, paramètre, repère, ...) — PTC distingue
@@ -179,6 +301,17 @@ using Line = FixedWString<detail::kLineSize>;
 // Correspond à `ProPath` (taille PRO_PATH_SIZE = 260) : chemin de fichier
 // ou de répertoire.
 using Path = FixedWString<detail::kPathSize>;
+
+// Conversions entre Path et std::filesystem::path : Path représente
+// spécifiquement un chemin (contrairement à Name/Line/Comment/...), cette
+// interop n'a donc de sens que pour cet alias précis, pas pour le modèle
+// générique FixedWString<N>.
+inline std::filesystem::path ToFilesystemPath(const Path &path) {
+  return std::filesystem::path(path.View());
+}
+inline Path PathFromFilesystem(const std::filesystem::path &fs_path) {
+  return Path(fs_path.wstring());
+}
 
 // Correspond à `ProComment` (taille PRO_COMMENT_SIZE = 256) : texte de
 // commentaire (feature, paramètre, ...).
@@ -217,6 +350,18 @@ using ModelExtension = FixedWString<detail::kMdlExtensionSize>;
 // juste une limite numérique — exposée ici pour rester à côté des autres
 // constantes ProTOOLKIT du wrapper.
 inline constexpr int MaxAssemLevel = detail::kMaxAssemLevel;
+
+// Correspond à `PRO_VALUE_UNUSED` : sentinelle "valeur non utilisée" que
+// de nombreuses fonctions ProTOOLKIT acceptent en lieu et place d'un index
+// ou d'une valeur explicite (par ex. ProArrayObjectAdd : tout index
+// négatif ajoute en fin de tableau — PRO_VALUE_UNUSED en est un exemple,
+// pas la seule valeur qui déclenche ce comportement). En mode SDK réel,
+// reprend directement la macro PTC. En mode shim, vaut -1 par convergence
+// de sources secondaires (support.ptc.com était inaccessible au moment où
+// ce wrapper a été développé) : à confirmer contre le SDK réel si un
+// doute existe, mais sans conséquence pratique ici puisque le wrapper ne
+// teste jamais l'égalité avec cette valeur, seulement `< 0`.
+inline constexpr int ValueUnused = detail::kValueUnused;
 
 // Correspond à `ProMacro` (taille PRO_MACRO_SIZE = 256). Note PTC reprise
 // ici : cette taille n'est plus une limite réelle pour ProMacroLoad(), le
@@ -315,6 +460,22 @@ public:
   bool IsValid() const noexcept { return handle_ != nullptr; }
   explicit operator bool() const noexcept { return IsValid(); }
 
+  // Nom du modèle (ProMdlMdlNameGet, qui remplace en Creo 10 l'ancienne
+  // ProMdlNameGet dépréciée). Convenience method : évite de réécrire à
+  // chaque fois le couple CREO_CHECK + ModelName + .Raw() déjà montré dans
+  // examples/hello_creo.cpp. Lève std::logic_error si le handle est
+  // invalide (nul), avant même de tenter l'appel ProTOOLKIT — message
+  // plus clair qu'un PRO_TK_BAD_INPUTS générique remonté depuis le SDK.
+  ModelName Name() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Name() appelé sur un handle invalide (nul)");
+    }
+    ModelName name;
+    CREO_CHECK(detail::MdlMdlNameGet(handle_, name.Raw()));
+    return name;
+  }
+
   // Handle brut, pour les appels directs aux fonctions ProTOOLKIT non (ou
   // pas encore) enveloppées par ce wrapper.
   detail::RawMdl Raw() const noexcept { return handle_; }
@@ -322,5 +483,15 @@ public:
 private:
   detail::RawMdl handle_;
 };
+
+// Deux ModelHandle sont égaux s'ils désignent le même modèle (même handle
+// ProTOOLKIT sous-jacent) — pas s'ils ont le même nom, deux modèles
+// distincts pouvant partager un nom générique.
+inline bool operator==(const ModelHandle &lhs, const ModelHandle &rhs) noexcept {
+  return lhs.Raw() == rhs.Raw();
+}
+inline bool operator!=(const ModelHandle &lhs, const ModelHandle &rhs) noexcept {
+  return !(lhs == rhs);
+}
 
 } // namespace creo

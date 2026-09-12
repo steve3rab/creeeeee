@@ -78,6 +78,12 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
   return ::ProArrayMaxCountGet(obj_size, max_num_objs);
 }
 
+// Trampoline vers ProMdlMdlNameGet (voir ModelHandle::Name() dans
+// types.hpp), qui remplace en Creo 10 l'ancienne ProMdlNameGet dépréciée.
+inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
+  return ::ProMdlMdlNameGet(model, name_out);
+}
+
 // Tailles "atomiques" (constantes PTC officielles, ProSizeConst.h, Creo 10).
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;
@@ -98,6 +104,10 @@ inline constexpr int kFeatRefKeySize = PRO_FEATREF_KEY_SIZE;
 inline constexpr int kMacroSize = PRO_MACRO_SIZE;
 
 inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
+
+// Sentinelle "valeur non utilisée/en fin de tableau" — voir creo::kUnused
+// dans types.hpp pour le détail et la réserve sur sa valeur en mode shim.
+inline constexpr int kValueUnused = PRO_VALUE_UNUSED;
 
 #else
 
@@ -120,6 +130,9 @@ inline ProErrorCode ArraySizeGet(RawArray array, int *p_size) {
 inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
   return shim::ProArrayMaxCountGet(obj_size, max_num_objs);
 }
+inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
+  return shim::ProMdlMdlNameGet(model, name_out);
+}
 
 inline constexpr int kLineSize = shim::kLineSize;
 inline constexpr int kPathSize = shim::kPathSize;
@@ -136,6 +149,7 @@ inline constexpr int kFeatRefKeySize = shim::kFeatRefKeySize;
 inline constexpr int kMacroSize = shim::kMacroSize;
 
 inline constexpr ProErrorCode kNoError = shim::PRO_TK_NO_ERROR;
+inline constexpr int kValueUnused = shim::kValueUnused;
 
 #endif
 

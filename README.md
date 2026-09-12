@@ -98,9 +98,10 @@ creo::detail::RawMdl raw_model = nullptr;
 CREO_CHECK(ProMdlCurrentGet(&raw_model));
 
 creo::ModelHandle model(raw_model);
-creo::ModelName name;
-// ProMdlMdlNameGet remplace ProMdlNameGet, désormais dépréciée en Creo 10.
-CREO_CHECK(ProMdlMdlNameGet(model.Raw(), name.Raw()));
+// model.Name() enveloppe CREO_CHECK + ProMdlMdlNameGet (qui remplace
+// ProMdlNameGet, désormais dépréciée en Creo 10) et lève std::logic_error
+// si le handle est invalide, sans même tenter l'appel ProTOOLKIT.
+creo::ModelName name = model.Name();
 
 std::printf("Modèle actif : %s\n", name.ToString().c_str());
 ```
@@ -187,6 +188,90 @@ CREO_CHECK(ProConfigoptSet(option, option_value));
 `Assign()` (comme le constructeur) vérifie la capacité du buffer visé
 (`Path` = 260 caractères) et lève `std::length_error` plutôt que de
 tronquer silencieusement une valeur trop longue.
+
+### Comparaisons, `View()` et interopérabilité
+
+Tous les types texte (`Name`, `Line`, `Path`, `ModelName`, `CharName`, ...)
+sont comparables directement, entre eux comme contre une chaîne C++ :
+
+```cpp
+creo::Name a(L"engrenage_01");
+creo::ModelName b(L"engrenage_01");   // capacité différente, comparaison OK
+
+if (a == b) { /* ... */ }
+if (a == L"engrenage_01") { /* ... */ }             // littéral wide
+if (a == std::wstring_view(L"engrenage_01")) { }    // wstring_view / wstring
+
+creo::CharName cn("MENU_A");
+if (cn == "MENU_A") { /* ... */ }                   // littéral char
+```
+
+Ces opérateurs comparent le **contenu** (via `View()`, ci-dessous), jamais
+l'adresse du buffer — un point qui mérite d'être explicite : chaque type
+expose aussi un `operator wchar_t*()`/`operator char*()` implicite,
+nécessaire pour l'interop directe avec les fonctions C ProTOOLKIT
+(`ProConfigoptSet(option, option_value)`). Sans une surcharge dédiée
+`const wchar_t*`/`const char*` en plus de celles en `wstring_view`/
+`string_view`, comparer contre un littéral serait ambigu pour le
+compilateur (deux conversions implicites de même rang : vers pointeur, ou
+vers vue) ; ces surcharges existent précisément pour lever cette ambiguïté
+en faveur de la comparaison par contenu.
+
+`View()` renvoie un `std::wstring_view`/`std::string_view` sur le buffer
+sans copie (contrairement à `ToWString()`/`ToString()`, qui en allouent une
+nouvelle à chaque appel) :
+
+```cpp
+std::wstring_view v = path.View();
+if (v.substr(v.size() - 4) == L".prt") { /* ... */ }
+```
+
+(`std::wstring_view::ends_with` est du C++20 ; ce wrapper cible le C++17.)
+
+`Path` s'interface aussi avec `std::filesystem::path` :
+
+```cpp
+#include "creo/types.hpp"
+
+std::filesystem::path fs = creo::ToFilesystemPath(path);
+creo::Path p = creo::PathFromFilesystem(fs / "sous_dossier" / "piece.prt");
+```
+
+`creo::ValueUnused` correspond à `PRO_VALUE_UNUSED`, la sentinelle
+"valeur/index non utilisé" acceptée par de nombreuses fonctions ProTOOLKIT
+(par ex. tout index négatif passé à `ProArrayObjectAdd` ajoute en fin de
+tableau — `ValueUnused` en est un exemple, pas la seule valeur qui
+déclenche ce comportement). **Réserve de confiance** : en mode SDK réel,
+reprend directement la macro PTC ; en mode shim, vaut `-1` par convergence
+de sources secondaires, `support.ptc.com` n'ayant pas pu être consultée
+directement pour vérifier cette valeur précise au moment du développement
+de ce wrapper. Sans conséquence pratique ici (le wrapper ne teste jamais
+l'égalité avec cette constante, seulement `< 0`), mais à confirmer contre
+le SDK réel en cas de doute.
+
+### ModelHandle
+
+Au-delà de `IsValid()`/`Raw()`, `ModelHandle` expose une méthode de
+confort pour le cas le plus courant :
+
+```cpp
+creo::ModelHandle model(raw_model);
+creo::ModelName name = model.Name();  // CREO_CHECK(ProMdlMdlNameGet(...)) intégré
+```
+
+`Name()` lève `std::logic_error` (pas une `ProToolkitError`) si le handle
+est invalide (nul) : l'erreur est détectée avant même de tenter l'appel
+ProTOOLKIT, avec un message plus explicite qu'un `PRO_TK_BAD_INPUTS`
+générique remonté depuis le SDK.
+
+Deux `ModelHandle` sont comparables par égalité — ils désignent le même
+modèle si et seulement s'ils portent le même handle ProTOOLKIT sous-jacent
+(pas seulement le même nom, deux modèles distincts pouvant partager un nom
+générique) :
+
+```cpp
+if (model1 == model2) { /* même modèle */ }
+```
 
 ### Array&lt;T&gt;
 
@@ -335,7 +420,9 @@ confondre tronquerait silencieusement un nom de modèle trop long pour un
 
 `MaxAssemLevel` (= 25, `PRO_MAX_ASSEM_LEVEL`) est aussi exposé, mais ce
 n'est pas une taille de buffer : c'est le nombre maximum de niveaux
-d'imbrication d'assemblage pris en charge par ProTOOLKIT.
+d'imbrication d'assemblage pris en charge par ProTOOLKIT. `ValueUnused`
+(`PRO_VALUE_UNUSED`) est documenté plus haut, voir « Comparaisons, `View()`
+et interopérabilité ».
 
 ## Contribuer
 
