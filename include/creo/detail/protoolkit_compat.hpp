@@ -30,13 +30,15 @@
 #if CREO_WRAPPER_HAS_REAL_SDK
 // En-têtes officiels PTC, fournis avec le SDK ProTOOLKIT de Creo 10.
 // Non redistribués dans ce dépôt : voir README pour leur emplacement.
-// Les constantes PRO_*_SIZE (définies dans ProSizeConst.h côté PTC) sont
-// censées être visibles transitivement via ces en-têtes ; si le SDK réel
-// les déclare ailleurs, le compilateur signalera une macro manquante et il
-// suffira d'ajouter l'en-tête correspondant ci-dessous.
+// ProSizeConst.h (constantes PRO_*_SIZE) est un en-tête autonome côté PTC
+// (garde d'inclusion propre, ne dépend que de ProToolkit.h pour
+// PRO_BEGIN_C_DECLS/PRO_END_C_DECLS) : rien ne garantit qu'il soit inclus
+// transitivement par les en-têtes ci-dessous, on l'inclut donc
+// explicitement plutôt que de compter dessus.
 #include <ProArray.h>
 #include <ProMdl.h>
 #include <ProObjects.h>
+#include <ProSizeConst.h>
 #include <ProToolkit.h>
 #else
 #include "creo/detail/protoolkit_shim.hpp"

@@ -5,6 +5,7 @@
 #include <ProArray.h>
 #include <ProMdl.h>
 #include <ProObjects.h>
+#include <ProSizeConst.h>
 #include <ProToolkit.h>
 
 namespace creo::detail {
