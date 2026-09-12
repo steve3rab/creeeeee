@@ -42,7 +42,7 @@ include/creo/
   constants.hpp                   MaxAssemLevel, ValueUnused, ValueDefault
   object_type.hpp                 ObjectType, Boolean
   model_handle.hpp                ModelHandle
-  model_item.hpp                  ModelItem and its aliases (GeomItem, Feature, ...)
+  model_item.hpp                  ModelItem, Feature, and the rest of the aliases
   array.hpp                       Array<T>: RAII around ProArray
   error.hpp                       ProToolkitError + CREO_CHECK macro
   detail/protoolkit_compat.hpp    Real SDK / shim switch
@@ -375,6 +375,39 @@ how ProTOOLKIT itself identifies a database object:
 ```cpp
 if (feat1 == feat2) { /* same feature */ }
 ```
+
+`Feature` is the one exception to "all 27 names are plain aliases of
+`ModelItem`": it is a real derived class (`class Feature : public
+ModelItem`), because it has one feature-specific operation —
+`Regenerate()` (`ProFeatureRegenerate`) — that would not make sense on a
+`Layer`, a `Note`, or a `SolidBody`. It adds no data member of its own,
+so it stays exactly the same size/layout as `ModelItem`, with no virtual
+dispatch: this is a compile-time-only distinction (the compiler tells a
+`Feature` apart from any other alias), not a runtime one.
+
+```cpp
+creo::Feature feat(raw_feature);
+feat.Regenerate(feat.Owner());  // CREO_CHECK(ProFeatureRegenerate(...))
+```
+
+> **Caveat**: `ProFeatureRegenerate`'s exact signature
+> (`ProError ProFeatureRegenerate(ProSolid solid, ProFeature *feature)`)
+> was given as a description of the API's usual shape, not copied from a
+> real header — unlike the constants/enums elsewhere in this wrapper,
+> confirmed from pasted PTC header content. `Regenerate()` also assumes
+> `ProSolid` is interchangeable with `ProMdl` (as described), rather than
+> introducing a separate `Solid` type. If a real SDK's `ProSolid` turns
+> out to be a distinct, incompatible type, the real-SDK build will fail
+> to compile right at this trampoline (`detail::FeatureRegenerate` in
+> `detail/protoolkit_compat.hpp`) — loudly, not silently wrong — and the
+> fix is local to that one line.
+
+Only `Feature` has been promoted to a real class so far, on the strength
+of this one concrete per-type operation. The other 26 aliases
+(`GeomItem`, `Dimension`, `Layer`, `Note`, ...) stay plain aliases of
+`ModelItem` until a similarly concrete need for each shows up — turning
+all of them into distinct classes speculatively, before any of them has
+actual per-type behavior, was considered and deliberately deferred.
 
 ### Array&lt;T&gt;
 

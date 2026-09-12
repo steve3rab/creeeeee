@@ -107,9 +107,9 @@ void DemonstrateTypes() {
   // ProGeomitem, ProFeature, ProDimension, ProNote, ProLayer, ... are all,
   // structurally, the exact same 3-field struct {type, id, owner} — PTC
   // only distinguishes them by typedef name. creo::ModelItem wraps that
-  // struct once; GeomItem/Feature/Dimension/... are aliases of it, same
-  // as the C side. Type()/Id()/Owner() are plain field reads, so this
-  // works without a real Creo session (unlike GetName(), which needs one).
+  // struct once; GeomItem/Dimension/... are plain aliases of it, same as
+  // the C side. Type()/Id()/Owner() are plain field reads, so this works
+  // without a real Creo session (unlike GetName(), which needs one).
   creo::detail::RawModelItem raw_item{};
   raw_item.type = creo::ObjectType::PRO_FEATURE;
   raw_item.id = 42;
@@ -117,6 +117,17 @@ void DemonstrateTypes() {
   std::printf("Feature: type = %d, id = %d, owner is valid = %s\n",
               static_cast<int>(feature.Type()), feature.Id(),
               feature.Owner().IsValid() ? "yes" : "no");
+
+  // Unlike the other aliases, Feature is a real derived class of
+  // ModelItem, not a bare alias: it has one feature-specific method,
+  // Regenerate() (ProFeatureRegenerate), which would not make sense on a
+  // Layer or a Note. It still needs a real session to do anything useful.
+  try {
+    feature.Regenerate(feature.Owner());
+  } catch (const creo::ProToolkitError &e) {
+    std::printf("Feature::Regenerate() failed (expected, no session): %s\n",
+                e.what());
+  }
 
   std::puts("\n--- Error handling: CREO_CHECK / ProToolkitError ---");
 

@@ -73,12 +73,43 @@ inline bool operator!=(const ModelItem &lhs, const ModelItem &rhs) noexcept {
   return !(lhs == rhs);
 }
 
+// ---------------------------------------------------------------------------
+// Feature
+// ---------------------------------------------------------------------------
+// Unlike the other aliases below, `Feature` is a real derived class, not
+// a bare `using Feature = ModelItem;`: it has genuine feature-specific
+// behavior (Regenerate(), wrapping ProFeatureRegenerate) that would make
+// no sense on a Layer, a Note, or a SolidBody. Adding no data member of
+// its own — only a method — it stays exactly the same size/layout as
+// ModelItem, with no virtual dispatch: this is a compile-time-only
+// distinction (the compiler now tells a Feature apart from a Layer),
+// not a runtime one. `using ModelItem::ModelItem;` inherits both of the
+// base's constructors unchanged.
+class Feature : public ModelItem {
+public:
+  using ModelItem::ModelItem;
+
+  // Regenerates this feature (ProFeatureRegenerate). `solid` is the
+  // part/assembly that owns it — matches Owner(), but PTC's API takes it
+  // as a separate argument rather than reading it off the feature, so
+  // this mirrors that rather than silently substituting Owner().
+  //
+  // const_cast: see ModelItem::GetName() above — same reasoning, a C
+  // "Get"/"do a thing" API taking a non-const pointer for an operation
+  // that does not mutate the (type, id, owner) triple itself.
+  void Regenerate(const ModelHandle &solid) const {
+    CREO_CHECK(detail::FeatureRegenerate(
+        solid.Raw(), const_cast<detail::RawModelItem *>(Raw())));
+  }
+};
+
 // PTC gives `pro_model_item` one typedef name per kind of database
 // object; this wrapper mirrors that with one alias per name, all sharing
-// the same ModelItem implementation (see the class comment above).
+// the same ModelItem implementation (see the class comment above) —
+// except Feature, which is a real derived class (see above) rather than
+// a bare alias, since it alone has a per-type method so far.
 using GeomItem = ModelItem;
 using ExtObj = ModelItem;
-using Feature = ModelItem;
 using ProcStep = ModelItem;
 using SimpRep = ModelItem;
 using ExpldState = ModelItem;

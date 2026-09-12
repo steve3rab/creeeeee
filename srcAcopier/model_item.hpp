@@ -38,9 +38,18 @@ inline bool operator!=(const ModelItem &lhs, const ModelItem &rhs) noexcept {
   return !(lhs == rhs);
 }
 
+class Feature : public ModelItem {
+public:
+  using ModelItem::ModelItem;
+
+  void Regenerate(const ModelHandle &solid) const {
+    CREO_CHECK(detail::FeatureRegenerate(
+        solid.Raw(), const_cast<detail::RawModelItem *>(Raw())));
+  }
+};
+
 using GeomItem = ModelItem;
 using ExtObj = ModelItem;
-using Feature = ModelItem;
 using ProcStep = ModelItem;
 using SimpRep = ModelItem;
 using ExpldState = ModelItem;

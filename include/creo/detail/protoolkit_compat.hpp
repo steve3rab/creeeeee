@@ -92,6 +92,16 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return ::ProModelitemNameGet(item, name_out);
 }
 
+// Trampoline to ProFeatureRegenerate (see Feature::Regenerate() in
+// model_item.hpp). `solid` is passed as a RawMdl: this assumes ProSolid
+// is interchangeable with ProMdl (as described by the user; not verified
+// against a real header) — if the real SDK's ProSolid is a genuinely
+// distinct, incompatible type, this line is where the build will fail to
+// tell you so.
+inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
+  return ::ProFeatureRegenerate(solid, feature);
+}
+
 // "Atomic" sizes (official PTC constants, ProSizeConst.h, Creo 10).
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;
@@ -149,6 +159,9 @@ inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
 }
 inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return shim::ProModelitemNameGet(item, name_out);
+}
+inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
+  return shim::ProFeatureRegenerate(solid, feature);
 }
 
 inline constexpr int kLineSize = shim::kLineSize;

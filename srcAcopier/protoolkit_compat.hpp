@@ -39,6 +39,10 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return ::ProModelitemNameGet(item, name_out);
 }
 
+inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
+  return ::ProFeatureRegenerate(solid, feature);
+}
+
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;
 inline constexpr int kCommentSize = PRO_COMMENT_SIZE;

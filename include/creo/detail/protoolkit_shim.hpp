@@ -569,6 +569,22 @@ inline ProError ProModelitemNameGet(ProModelitem *p_handle,
   return PRO_TK_NOT_IMPLEMENTED;
 }
 
+// Reproduces the signature of ProFeatureRegenerate, for
+// creo::Feature::Regenerate() (types.hpp) to compile in shim mode. Signature
+// as given by the user (a description of the API's usual shape, not a
+// pasted header), not independently verified: `solid` is taken as a plain
+// ProMdl here (the user's own description treats ProSolid/ProMdl as
+// interchangeable) — if a real SDK's ProSolid turns out to be a genuinely
+// distinct type, the real-SDK branch in protoolkit_compat.hpp will fail to
+// compile there, loudly, rather than silently doing the wrong thing. Like
+// the other "needs a real session" stubs above, this always fails.
+inline ProError ProFeatureRegenerate(ProMdl solid, ProFeature *feature) {
+  if (solid == nullptr || feature == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
 // -----------------------------------------------------------------------
 // ProArray (ProArray.h, Creo 10): PTC's generic dynamic array, a plain
 // opaque `void*` on the API side. Unlike ProMdl/ProError above (simple
