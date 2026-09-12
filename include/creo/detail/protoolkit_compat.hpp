@@ -56,6 +56,7 @@ using RawMdl = ::ProMdl;
 using RawObjectType = ::ProType;
 using RawArray = ::ProArray;
 using RawBoolean = ::ProBoolean;
+using RawModelItem = ::ProModelitem;
 
 // Trampolines to the real ProArray functions: creo::Array<T> (see
 // creo/array.hpp) calls these aliases, never ::ProArrayXxx nor
@@ -84,6 +85,11 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
 // which replaces the now-deprecated ProMdlNameGet in Creo 10.
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
   return ::ProMdlMdlNameGet(model, name_out);
+}
+
+// Trampoline to ProModelitemNameGet (see ModelItem::Name() in types.hpp).
+inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
+  return ::ProModelitemNameGet(item, name_out);
 }
 
 // "Atomic" sizes (official PTC constants, ProSizeConst.h, Creo 10).
@@ -123,6 +129,7 @@ using RawMdl = shim::ProMdl;
 using RawObjectType = shim::ProType;
 using RawArray = shim::ProArray;
 using RawBoolean = shim::ProBoolean;
+using RawModelItem = shim::ProModelitem;
 
 inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
                                 int reallocation_size, RawArray *p_array) {
@@ -139,6 +146,9 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
 }
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
   return shim::ProMdlMdlNameGet(model, name_out);
+}
+inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
+  return shim::ProModelitemNameGet(item, name_out);
 }
 
 inline constexpr int kLineSize = shim::kLineSize;

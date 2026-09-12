@@ -289,6 +289,80 @@ name):
 if (model1 == model2) { /* same model */ }
 ```
 
+### ModelItem
+
+`creo::ModelItem` corresponds to `pro_model_item` (`ProObjects.h`): a
+plain 3-field value struct `{type, id, owner}` that PTC gives roughly
+thirty different typedef names — `ProGeomitem`, `ProFeature`,
+`ProDimension`, `ProNote`, `ProLayer`, `ProGtol`, `ProSolidBody`, ... —
+one per kind of database object, even though they are bit-for-bit
+identical at the C level: a `(type, id, owner)` triple is how ProTOOLKIT
+identifies any database object within a model. This wrapper mirrors that
+with a single `ModelItem` class and one alias per PTC name, all sharing
+the same implementation:
+
+```cpp
+creo::GeomItem
+creo::ExtObj
+creo::Feature
+creo::ProcStep
+creo::SimpRep
+creo::ExpldState
+creo::Layer
+creo::Dimension
+creo::DtlNote
+creo::DtlSymInst
+creo::Gtol
+creo::CompDisp
+creo::DwgTable
+creo::Note
+creo::AnnotationElem
+creo::Annotation
+creo::AnnotationPlane
+creo::Symbol
+creo::SurfFinish
+creo::MechItem
+creo::MaterialItem
+creo::CombState
+creo::LayerState
+creo::ApprnState
+creo::SolidBody
+creo::Ply
+creo::Table
+```
+
+```cpp
+// Type()/Id()/Owner() are plain field reads: they work on any ModelItem
+// value, including one built by hand (e.g. in a test), with no
+// ProTOOLKIT call and no real Creo session needed.
+creo::Feature feat(raw_feature);   // raw_feature: detail::RawModelItem
+creo::ObjectType t = feat.Type();
+int id = feat.Id();
+creo::ModelHandle owner = feat.Owner();
+
+// GetName() does need a real session (ProModelitemNameGet).
+creo::Name name = feat.GetName();
+```
+
+`GetName()` returns a `Name` (`ProName`, 32 characters) — **not** a
+`ModelName` (`ProMdlName`, 180 characters): `ProModelitemNameGet` names a
+database object (a feature, a dimension, an explosion state, ...), which
+falls under "any other Creo Parametric name", while `ModelName`/
+`ProMdlName` is reserved specifically for the name of a whole `ProMdl`
+(see `ModelHandle::Name()` above) — the two are easy to conflate since
+both are ultimately "the name of a Pro-something". The method is named
+`GetName()`, not `Name()`: a member function named exactly like the
+`creo::Name` type it returns does not compile (it shadows the type
+within the class, including in its own return-type position).
+
+Two `ModelItem` are comparable by equality — they designate the same
+database object if their type, id, and owning model all match, matching
+how ProTOOLKIT itself identifies a database object:
+
+```cpp
+if (feat1 == feat2) { /* same feature */ }
+```
+
 ### Array&lt;T&gt;
 
 `creo::Array<T>` (`include/creo/array.hpp`) wraps `ProArray`

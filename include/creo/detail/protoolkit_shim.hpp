@@ -515,6 +515,60 @@ enum ProType : int {
   PRO_ASM_LOG_SRF = 74360,
 };
 
+// Faithful reproduction of `pro_model_item` (ProObjects.h, Creo 10):
+// PTC gives this exact same 3-field struct roughly thirty different
+// typedef names — ProGeomitem, ProFeature, ProDimension, ProNote,
+// ProLayer, ... — one per kind of database object, even though they are
+// bit-for-bit identical at the C level. See creo::ModelItem (types.hpp)
+// and its aliases (GeomItem, Feature, Dimension, ...) for the C++ side of
+// this. Provided by the user from the real header.
+struct ProModelitem {
+  ProType type;
+  int id;
+  ProMdl owner;
+};
+using ProGeomitem = ProModelitem;
+using ProExtobj = ProModelitem;
+using ProFeature = ProModelitem;
+using ProProcstep = ProModelitem;
+using ProSimprep = ProModelitem;
+using ProExpldstate = ProModelitem;
+using ProLayer = ProModelitem;
+using ProDimension = ProModelitem;
+using ProDtlnote = ProModelitem;
+using ProDtlsyminst = ProModelitem;
+using ProGtol = ProModelitem;
+using ProCompdisp = ProModelitem;
+using ProDwgtable = ProModelitem;
+using ProNote = ProModelitem;
+using ProAnnotationElem = ProModelitem;
+using ProAnnotation = ProModelitem;
+using ProAnnotationPlane = ProModelitem;
+using ProSymbol = ProModelitem;
+using ProSurfFinish = ProModelitem;
+using ProMechItem = ProModelitem;
+using ProMaterialItem = ProModelitem;
+using ProCombstate = ProModelitem;
+using ProLayerstate = ProModelitem;
+using ProApprnstate = ProModelitem;
+using ProSolidBody = ProModelitem;
+using ProPly = ProModelitem;
+using ProTable = ProModelitem;
+
+// Reproduces the signature of ProModelitemNameGet, for
+// creo::ModelItem::Name() (types.hpp) to compile in shim mode. Unlike
+// Type()/Id()/Owner() (plain field reads, valid on any ProModelitem value
+// including one built by hand in a test), a name lookup genuinely needs a
+// real model database: this stub always fails rather than inventing a
+// name, exactly like ProMdlMdlNameGet's stub above.
+inline ProError ProModelitemNameGet(ProModelitem *p_handle,
+                                     wchar_t *name_out) {
+  if (p_handle == nullptr || name_out == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
 // -----------------------------------------------------------------------
 // ProArray (ProArray.h, Creo 10): PTC's generic dynamic array, a plain
 // opaque `void*` on the API side. Unlike ProMdl/ProError above (simple

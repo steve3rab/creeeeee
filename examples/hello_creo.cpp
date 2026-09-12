@@ -102,6 +102,22 @@ void DemonstrateTypes() {
   std::printf("ValueUnused = %d, ValueDefault = %d\n", creo::ValueUnused,
               creo::ValueDefault);
 
+  std::puts("\n--- ModelItem (ProGeomitem/ProFeature/ProDimension/...) ---");
+
+  // ProGeomitem, ProFeature, ProDimension, ProNote, ProLayer, ... are all,
+  // structurally, the exact same 3-field struct {type, id, owner} — PTC
+  // only distinguishes them by typedef name. creo::ModelItem wraps that
+  // struct once; GeomItem/Feature/Dimension/... are aliases of it, same
+  // as the C side. Type()/Id()/Owner() are plain field reads, so this
+  // works without a real Creo session (unlike GetName(), which needs one).
+  creo::detail::RawModelItem raw_item{};
+  raw_item.type = creo::ObjectType::PRO_FEATURE;
+  raw_item.id = 42;
+  creo::Feature feature(raw_item);
+  std::printf("Feature: type = %d, id = %d, owner is valid = %s\n",
+              static_cast<int>(feature.Type()), feature.Id(),
+              feature.Owner().IsValid() ? "yes" : "no");
+
   std::puts("\n--- Error handling: CREO_CHECK / ProToolkitError ---");
 
   // Simulates a ProTOOLKIT call that would fail with PRO_TK_BAD_INPUTS
