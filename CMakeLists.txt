@@ -4,24 +4,9 @@
 # include/creo/detail/protoolkit_compat.hpp). To link against a real
 # Creo 10 session, set CREO_TOOLKIT_ROOT (and CREO_TOOLKIT_ARCH if
 # needed): see cmake/FindProToolkit.cmake and the README for details.
-#
-# Requires Windows (natively or cross-compiled with MinGW-w64):
-# creo::detail::ToUtf8/FromUtf8 (include/creo/detail/utf8.hpp) call the
-# native Win32 API (WideCharToMultiByte/MultiByteToWideChar) directly,
-# with no portable fallback, so this is no longer a "shim mode covers
-# every OS" situation like the ProTOOLKIT SDK check below.
 
 cmake_minimum_required(VERSION 3.16)
 project(creo_wrapper LANGUAGES CXX)
-
-if(NOT WIN32)
-  message(FATAL_ERROR
-    "This wrapper requires Windows: creo::detail::ToUtf8/FromUtf8 "
-    "(include/creo/detail/utf8.hpp) call the native Win32 API "
-    "(WideCharToMultiByte/MultiByteToWideChar) directly, with no portable "
-    "fallback. Build on Windows, or cross-compile with a MinGW-w64 "
-    "toolchain (CMAKE_TOOLCHAIN_FILE / CMAKE_SYSTEM_NAME=Windows).")
-endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,9 +40,13 @@ if(CREO_WRAPPER_BUILD_EXAMPLES)
   target_link_libraries(hello_creo PRIVATE creo_wrapper)
 endif()
 
-# General-purpose Win32 utility (env var / path / UTF-8 helpers), not
+# General-purpose Win32 utility (env var / path helpers), header-only, not
 # specific to ProTOOLKIT: does not depend on creo_wrapper, and vice versa.
-add_library(property_utils STATIC windows/PropertyUtils.cpp)
-target_include_directories(property_utils PUBLIC
-  "${CMAKE_CURRENT_SOURCE_DIR}/windows"
-)
+# Windows-only regardless of creo_wrapper's own portability: it reads
+# environment variables via GetEnvironmentVariableW.
+if(WIN32)
+  add_library(property_utils INTERFACE)
+  target_include_directories(property_utils INTERFACE
+    "${CMAKE_CURRENT_SOURCE_DIR}/windows"
+  )
+endif()

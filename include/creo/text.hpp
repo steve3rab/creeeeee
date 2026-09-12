@@ -91,10 +91,11 @@ public:
   // ProTOOLKIT call like CREO_CHECK(ProMdlMdlnameGet(model, name.Raw()));
   std::wstring ToWString() const { return std::wstring(View()); }
 
-  // Retrieves the buffer content converted to UTF-8 (via the native
-  // Win32 API, see creo/detail/utf8.hpp) — a stable std::string
-  // representation for logging, comparisons, or any API that does not
-  // want to deal with wide strings.
+  // Retrieves the buffer content converted to UTF-8. Choosing UTF-8 as
+  // the std::string representation is deliberate: the size of wchar_t
+  // (and therefore its implicit encoding) differs between Windows
+  // (UTF-16) and Linux/macOS (UTF-32), and UTF-8 remains the only stable
+  // representation on both sides (see creo/detail/utf8.hpp).
   std::string ToString() const { return detail::ToUtf8(View()); }
 
   // Raw buffer access, to pass directly to ProTOOLKIT C functions, e.g.
