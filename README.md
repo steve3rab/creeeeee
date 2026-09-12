@@ -673,12 +673,16 @@ std::filesystem::path binDir =
     PropertyUtils::environmentPath(L"CREO_TOOLKIT_ROOT");
 ```
 
-The UTF-8/wide conversions are their own private, self-contained,
-hand-rolled implementation — substituting `U+FFFD` for malformed input,
-never throwing — rather than the Win32 API `creo::detail::ToUtf8`/
-`FromUtf8` (`include/creo/detail/utf8.hpp`) uses: `PropertyUtils` has no
-dependency on `creo_wrapper`, so it keeps its own independent copy
-instead of sharing one.
+Like `creo::detail::ToUtf8`/`FromUtf8`, the UTF-8/wide conversions go
+through the native Win32 API (`MultiByteToWideChar`/
+`WideCharToMultiByte`, `CP_UTF8`) — but unlike them, `PropertyUtils` sets
+`MB_ERR_INVALID_CHARS`/`WC_ERR_INVALID_CHARS` and throws on malformed
+input rather than substituting `U+FFFD`: a malformed environment
+variable name or value is a configuration error worth surfacing loudly,
+whereas `creo::detail`'s conversions may see arbitrary text coming from
+a Creo model file, where substitution is the more useful behavior. The
+two are intentionally separate implementations for this reason, not a
+shared one.
 
 `environmentStr()`/`environmentPath()` distinguish a genuinely missing
 variable (`GetLastError() == ERROR_ENVVAR_NOT_FOUND`) from any other
