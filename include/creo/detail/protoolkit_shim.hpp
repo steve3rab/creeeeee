@@ -18,6 +18,10 @@
 // en-têtes PTC prennent le relais automatiquement.
 // -----------------------------------------------------------------------
 
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
+
 namespace creo::detail::shim {
 
 // --- Tailles "atomiques" (valeurs officielles PTC, Creo 10) --------------
@@ -474,5 +478,188 @@ enum ProType : int {
   PRO_RP_MANIKIN_SET = 74345,
   PRO_ASM_LOG_SRF = 74360,
 };
+
+// -----------------------------------------------------------------------
+// ProArray (ProArray.h, Creo 10) : tableau dynamique générique de PTC, un
+// simple `void*` opaque côté API. Contrairement à ProMdl/ProError plus
+// haut (de simples types de substitution, jamais exercés algorithmiquement
+// en mode shim), ProArray a un vrai comportement (allocation, croissance,
+// insertion/suppression) que creo::Array<T> (voir creo/array.hpp) exerce
+// réellement : cette reproduction doit donc être une implémentation
+// fonctionnelle, pas juste une déclaration de forme.
+//
+// Implémentation : un en-tête caché juste avant les données (technique
+// classique de "stretchy buffer"), pour que le pointeur ProArray renvoyé
+// à l'appelant pointe directement sur les données — reproduisant le
+// comportement documenté par PTC où un ProArray peut être casté
+// directement en T* pour un accès contigu en lecture.
+// -----------------------------------------------------------------------
+
+using ProArray = void *;
+
+struct ProArrayHeader {
+  int size;
+  int capacity;
+  int obj_size;
+  int reallocation_size;
+};
+
+inline ProArrayHeader *ProArrayHeaderOf(ProArray array) {
+  return reinterpret_cast<ProArrayHeader *>(static_cast<char *>(array) -
+                                             sizeof(ProArrayHeader));
+}
+
+inline ProError ProArrayMaxCountGet(int obj_size, int *max_num_objs) {
+  if (obj_size <= 0 || max_num_objs == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  // Reproduit l'ordre de grandeur documenté par PTC ("environ 2 Mo"), pas
+  // une limite réelle du système : purement indicatif en mode shim.
+  *max_num_objs = static_cast<int>((2 * 1024 * 1024) / obj_size);
+  return PRO_TK_NO_ERROR;
+}
+
+inline ProError ProArrayAlloc(int n_objs, int obj_size, int reallocation_size,
+                               ProArray *p_array) {
+  if (n_objs < 0 || obj_size <= 0 || p_array == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  std::size_t total =
+      sizeof(ProArrayHeader) + static_cast<std::size_t>(n_objs) * obj_size;
+  void *mem = std::malloc(total);
+  if (mem == nullptr) {
+    return PRO_TK_OUT_OF_MEMORY;
+  }
+  auto *header = static_cast<ProArrayHeader *>(mem);
+  header->size = n_objs;
+  header->capacity = n_objs;
+  header->obj_size = obj_size;
+  header->reallocation_size = reallocation_size > 0 ? reallocation_size : 1;
+  void *data = static_cast<char *>(mem) + sizeof(ProArrayHeader);
+  if (n_objs > 0) {
+    std::memset(data, 0, static_cast<std::size_t>(n_objs) * obj_size);
+  }
+  *p_array = data;
+  return PRO_TK_NO_ERROR;
+}
+
+inline ProError ProArrayFree(ProArray *p_array) {
+  if (p_array == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  if (*p_array != nullptr) {
+    std::free(ProArrayHeaderOf(*p_array));
+  }
+  *p_array = nullptr;
+  return PRO_TK_NO_ERROR;
+}
+
+inline ProError ProArraySizeGet(ProArray array, int *p_size) {
+  if (array == nullptr || p_size == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  *p_size = ProArrayHeaderOf(array)->size;
+  return PRO_TK_NO_ERROR;
+}
+
+inline ProError ProArrayEnsureCapacity(ProArray *p_array,
+                                        int needed_capacity) {
+  ProArrayHeader *header = ProArrayHeaderOf(*p_array);
+  if (needed_capacity <= header->capacity) {
+    return PRO_TK_NO_ERROR;
+  }
+  int new_capacity = header->capacity;
+  while (new_capacity < needed_capacity) {
+    new_capacity += header->reallocation_size;
+  }
+  std::size_t total = sizeof(ProArrayHeader) +
+                       static_cast<std::size_t>(new_capacity) *
+                           header->obj_size;
+  void *mem = std::realloc(header, total);
+  if (mem == nullptr) {
+    return PRO_TK_OUT_OF_MEMORY;
+  }
+  header = static_cast<ProArrayHeader *>(mem);
+  header->capacity = new_capacity;
+  *p_array = static_cast<char *>(mem) + sizeof(ProArrayHeader);
+  return PRO_TK_NO_ERROR;
+}
+
+inline ProError ProArraySizeSet(ProArray *p_array, int size) {
+  if (p_array == nullptr || *p_array == nullptr || size < 0) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  ProError err = ProArrayEnsureCapacity(p_array, size);
+  if (err != PRO_TK_NO_ERROR) {
+    return err;
+  }
+  ProArrayHeader *header = ProArrayHeaderOf(*p_array);
+  if (size > header->size) {
+    std::memset(static_cast<char *>(*p_array) +
+                    static_cast<std::size_t>(header->size) * header->obj_size,
+                0,
+                static_cast<std::size_t>(size - header->size) *
+                    header->obj_size);
+  }
+  header->size = size;
+  return PRO_TK_NO_ERROR;
+}
+
+inline ProError ProArrayObjectAdd(ProArray *p_array, int index, int n_objects,
+                                   void *p_object) {
+  if (p_array == nullptr || *p_array == nullptr || n_objects <= 0) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  ProArrayHeader *header = ProArrayHeaderOf(*p_array);
+  int old_size = header->size;
+  int insert_at = (index < 0) ? old_size : index;
+  if (insert_at > old_size) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  int new_size = old_size + n_objects;
+  ProError err = ProArrayEnsureCapacity(p_array, new_size);
+  if (err != PRO_TK_NO_ERROR) {
+    return err;
+  }
+  header = ProArrayHeaderOf(*p_array); // le realloc a pu déplacer le bloc.
+  char *base = static_cast<char *>(*p_array);
+  std::size_t obj_size = static_cast<std::size_t>(header->obj_size);
+  if (insert_at < old_size) {
+    std::memmove(
+        base + (static_cast<std::size_t>(insert_at) + n_objects) * obj_size,
+        base + static_cast<std::size_t>(insert_at) * obj_size,
+        static_cast<std::size_t>(old_size - insert_at) * obj_size);
+  }
+  if (p_object != nullptr) {
+    std::memcpy(base + static_cast<std::size_t>(insert_at) * obj_size,
+                p_object, static_cast<std::size_t>(n_objects) * obj_size);
+  }
+  header->size = new_size;
+  return PRO_TK_NO_ERROR;
+}
+
+inline ProError ProArrayObjectRemove(ProArray *p_array, int index,
+                                      int n_objects) {
+  if (p_array == nullptr || *p_array == nullptr || n_objects <= 0) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  ProArrayHeader *header = ProArrayHeaderOf(*p_array);
+  int old_size = header->size;
+  int remove_at = (index < 0) ? (old_size - n_objects) : index;
+  if (remove_at < 0 || remove_at + n_objects > old_size) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  char *base = static_cast<char *>(*p_array);
+  std::size_t obj_size = static_cast<std::size_t>(header->obj_size);
+  int tail_count = old_size - (remove_at + n_objects);
+  if (tail_count > 0) {
+    std::memmove(
+        base + static_cast<std::size_t>(remove_at) * obj_size,
+        base + static_cast<std::size_t>(remove_at + n_objects) * obj_size,
+        static_cast<std::size_t>(tail_count) * obj_size);
+  }
+  header->size = old_size - n_objects;
+  return PRO_TK_NO_ERROR;
+}
 
 } // namespace creo::detail::shim

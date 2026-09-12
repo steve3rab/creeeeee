@@ -34,6 +34,7 @@
 // censées être visibles transitivement via ces en-têtes ; si le SDK réel
 // les déclare ailleurs, le compilateur signalera une macro manquante et il
 // suffira d'ajouter l'en-tête correspondant ci-dessous.
+#include <ProArray.h>
 #include <ProMdl.h>
 #include <ProObjects.h>
 #include <ProToolkit.h>
@@ -52,6 +53,35 @@ namespace creo::detail {
 using ProErrorCode = ::ProError;
 using RawMdl = ::ProMdl;
 using RawObjectType = ::ProType;
+using RawArray = ::ProArray;
+
+// Trampolines vers les fonctions ProArray réelles : creo::Array<T> (voir
+// creo/array.hpp) appelle ces alias, jamais ::ProArrayXxx ni
+// shim::ProArrayXxx directement, pour rester indépendant du mode.
+inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
+                                int reallocation_size, RawArray *p_array) {
+  return ::ProArrayAlloc(n_objs, obj_size, reallocation_size, p_array);
+}
+inline ProErrorCode ArrayFree(RawArray *p_array) {
+  return ::ProArrayFree(p_array);
+}
+inline ProErrorCode ArraySizeSet(RawArray *p_array, int size) {
+  return ::ProArraySizeSet(p_array, size);
+}
+inline ProErrorCode ArraySizeGet(RawArray array, int *p_size) {
+  return ::ProArraySizeGet(array, p_size);
+}
+inline ProErrorCode ArrayObjectAdd(RawArray *p_array, int index,
+                                    int n_objects, void *p_object) {
+  return ::ProArrayObjectAdd(p_array, index, n_objects, p_object);
+}
+inline ProErrorCode ArrayObjectRemove(RawArray *p_array, int index,
+                                       int n_objects) {
+  return ::ProArrayObjectRemove(p_array, index, n_objects);
+}
+inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
+  return ::ProArrayMaxCountGet(obj_size, max_num_objs);
+}
 
 // Tailles "atomiques" (constantes PTC officielles, ProSizeConst.h, Creo 10).
 inline constexpr int kLineSize = PRO_LINE_SIZE;
@@ -80,6 +110,32 @@ inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
 using ProErrorCode = shim::ProError;
 using RawMdl = shim::ProMdl;
 using RawObjectType = shim::ProType;
+using RawArray = shim::ProArray;
+
+inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
+                                int reallocation_size, RawArray *p_array) {
+  return shim::ProArrayAlloc(n_objs, obj_size, reallocation_size, p_array);
+}
+inline ProErrorCode ArrayFree(RawArray *p_array) {
+  return shim::ProArrayFree(p_array);
+}
+inline ProErrorCode ArraySizeSet(RawArray *p_array, int size) {
+  return shim::ProArraySizeSet(p_array, size);
+}
+inline ProErrorCode ArraySizeGet(RawArray array, int *p_size) {
+  return shim::ProArraySizeGet(array, p_size);
+}
+inline ProErrorCode ArrayObjectAdd(RawArray *p_array, int index,
+                                    int n_objects, void *p_object) {
+  return shim::ProArrayObjectAdd(p_array, index, n_objects, p_object);
+}
+inline ProErrorCode ArrayObjectRemove(RawArray *p_array, int index,
+                                       int n_objects) {
+  return shim::ProArrayObjectRemove(p_array, index, n_objects);
+}
+inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
+  return shim::ProArrayMaxCountGet(obj_size, max_num_objs);
+}
 
 inline constexpr int kLineSize = shim::kLineSize;
 inline constexpr int kPathSize = shim::kPathSize;

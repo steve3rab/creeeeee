@@ -39,20 +39,21 @@ session Creo réelle.
 ```
 include/creo/
   types.hpp                       Types de base : Name, Line, Path, ModelHandle
+  array.hpp                       Array<T> : RAII autour de ProArray
   error.hpp                       ProToolkitError + macro CREO_CHECK
   detail/protoolkit_compat.hpp    Bascule SDK réel / shim
   detail/protoolkit_shim.hpp      Types de substitution (sans SDK)
 src/
   error.cpp
 examples/
-  hello_creo.cpp                  Tour des types/erreurs + nom du modèle actif
+  hello_creo.cpp                  Tour des types/erreurs/Array + nom du modèle actif
 cmake/
   FindProToolkit.cmake            Localise le SDK ProTOOLKIT installé
 srcAcopier/
-  types.hpp, error.hpp,           Version à plat (aucun sous-dossier, pas
-  protoolkit_compat.hpp,          de commentaires) pour un vrai projet
-  utf8.hpp, error.cpp             ProTOOLKIT (SDK + licence disponibles) :
-                                   CREO_WRAPPER_HAS_REAL_SDK y est figé à 1
+  types.hpp, array.hpp,           Version à plat (aucun sous-dossier, pas
+  error.hpp,                      de commentaires) pour un vrai projet
+  protoolkit_compat.hpp,          ProTOOLKIT (SDK + licence disponibles) :
+  utf8.hpp, error.cpp             CREO_WRAPPER_HAS_REAL_SDK y est figé à 1
                                    (pas de mode shim, le SDK réel est
                                    requis à la compilation).
 ```
@@ -186,6 +187,51 @@ CREO_CHECK(ProConfigoptSet(option, option_value));
 `Assign()` (comme le constructeur) vérifie la capacité du buffer visé
 (`Path` = 260 caractères) et lève `std::length_error` plutôt que de
 tronquer silencieusement une valeur trop longue.
+
+### Array&lt;T&gt;
+
+`creo::Array<T>` (`include/creo/array.hpp`) enveloppe `ProArray`
+(`ProArray.h`) : le tableau dynamique générique de ProTOOLKIT. À la
+différence de `ModelHandle` (non-propriétaire — Creo gère le cycle de vie
+d'un modèle), un `ProArray` est explicitement alloué/libéré par
+l'appelant : `Array<T>` en prend donc la propriété complète en RAII
+(alloue à la construction, libère au destructeur).
+
+```cpp
+#include "creo/array.hpp"
+
+creo::Array<int> values(0, 8); // vide, croît par blocs de 8 éléments
+values.Append(10);
+values.Append(20);
+values.Insert(1, 15);           // -> 10, 15, 20
+values.Remove(0);               // -> 15, 20
+
+for (int v : values) { /* ... */ }   // itération standard (begin()/end())
+int v = values[0];                    // accès non vérifié, comme std::vector
+int w = values.At(0);                 // accès vérifié, lève std::out_of_range
+
+// Prendre possession d'un ProArray déjà alloué par une autre fonction
+// ProTOOLKIT (au lieu d'en allouer un nouveau) :
+creo::Array<ProFeature> feats = creo::Array<ProFeature>::Adopt(raw_pro_array);
+```
+
+Points importants :
+- **Déplaçable, non copiable** : ProTOOLKIT n'offre pas de primitive de
+  duplication ; une copie profonde élément par élément serait coûteuse et
+  surprenante à faire passer pour un simple constructeur de copie.
+- **`T` doit être trivialement copiable** (vérifié par `static_assert`) :
+  ProTOOLKIT déplace les éléments par copie mémoire brute
+  (`realloc`/`memmove`), sans jamais appeler de constructeur/destructeur
+  C++ — un type non trivial serait corrompu ou fuirait à la première
+  réallocation.
+- `Insert(index, ...)`/`Append(...)` : PTC documente qu'un `index` négatif
+  déclenche un ajout en fin de tableau (`Array<T>::kAppend = -1`).
+
+En mode shim (sans SDK), `ProArray` est réimplémenté fonctionnellement
+(allocation, croissance par blocs, insertion/suppression avec décalage
+mémoire) plutôt que d'être un simple type de substitution : contrairement
+à `ProMdl`/`ProError`, `Array<T>` a un vrai comportement à exercer pour
+être testable sans Creo installé.
 
 ### ObjectType
 

@@ -2,6 +2,7 @@
 
 #define CREO_WRAPPER_HAS_REAL_SDK 1
 
+#include <ProArray.h>
 #include <ProMdl.h>
 #include <ProObjects.h>
 #include <ProToolkit.h>
@@ -11,6 +12,32 @@ namespace creo::detail {
 using ProErrorCode = ::ProError;
 using RawMdl = ::ProMdl;
 using RawObjectType = ::ProType;
+using RawArray = ::ProArray;
+
+inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
+                                int reallocation_size, RawArray *p_array) {
+  return ::ProArrayAlloc(n_objs, obj_size, reallocation_size, p_array);
+}
+inline ProErrorCode ArrayFree(RawArray *p_array) {
+  return ::ProArrayFree(p_array);
+}
+inline ProErrorCode ArraySizeSet(RawArray *p_array, int size) {
+  return ::ProArraySizeSet(p_array, size);
+}
+inline ProErrorCode ArraySizeGet(RawArray array, int *p_size) {
+  return ::ProArraySizeGet(array, p_size);
+}
+inline ProErrorCode ArrayObjectAdd(RawArray *p_array, int index,
+                                    int n_objects, void *p_object) {
+  return ::ProArrayObjectAdd(p_array, index, n_objects, p_object);
+}
+inline ProErrorCode ArrayObjectRemove(RawArray *p_array, int index,
+                                       int n_objects) {
+  return ::ProArrayObjectRemove(p_array, index, n_objects);
+}
+inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
+  return ::ProArrayMaxCountGet(obj_size, max_num_objs);
+}
 
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;

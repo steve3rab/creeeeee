@@ -8,7 +8,12 @@
 //     mode SDK réel et en mode shim, donc vous pouvez lancer cet
 //     exécutable directement (`./hello_creo`) même sans Creo installé.
 //
-//  2) PrintCurrentModelName() : récupère le nom du modèle actif via un
+//  2) DemonstrateArray() : tour de creo::Array<T> (RAII autour de
+//     ProArray). Comme DemonstrateTypes(), fonctionne identiquement en
+//     mode SDK réel et en mode shim (le shim réimplémente réellement le
+//     comportement d'un ProArray, pas juste sa forme).
+//
+//  3) PrintCurrentModelName() : récupère le nom du modèle actif via un
 //     enchaînement de deux appels ProTOOLKIT (ProMdlCurrentGet puis
 //     ProMdlMdlNameGet), le tout dans un seul try/catch — illustre comment
 //     CREO_CHECK court-circuite la suite du bloc dès la première erreur.
@@ -21,6 +26,7 @@
 // se fige sur la première orientation utilisée) : creo::ToString() suffit
 // pour tout afficher, y compris le contenu d'un buffer wide comme ProName.
 
+#include "creo/array.hpp"
 #include "creo/error.hpp"
 #include "creo/types.hpp"
 
@@ -70,6 +76,36 @@ void DemonstrateTypes() {
   }
 }
 
+void DemonstrateArray() {
+  std::puts("\n--- creo::Array<T> (RAII autour de ProArray) ---");
+
+  creo::Array<int> values(0, 4); // vide, croît par blocs de 4
+  for (int i = 1; i <= 5; ++i) {
+    values.Append(i * 10);
+  }
+  std::printf("Taille après 5 Append : %d\n", values.Size());
+
+  values.Insert(1, 999); // décale le reste
+  std::printf("Après Insert(1, 999) : ");
+  for (int v : values) {
+    std::printf("%d ", v);
+  }
+  std::putchar('\n');
+
+  values.Remove(1); // retire l'élément qu'on vient d'insérer
+  std::printf("Après Remove(1) : ");
+  for (int v : values) {
+    std::printf("%d ", v);
+  }
+  std::putchar('\n');
+
+  try {
+    values.At(100);
+  } catch (const std::out_of_range &e) {
+    std::printf("At(100) hors limites (attendu) : %s\n", e.what());
+  }
+}
+
 #if CREO_WRAPPER_HAS_REAL_SDK
 // Récupère le nom du modèle actuellement actif dans la session Creo.
 // Retourne false (et affiche le motif) si aucun modèle n'est actif ou si
@@ -114,6 +150,7 @@ bool PrintCurrentModelName() {
 
 int main() {
   DemonstrateTypes();
+  DemonstrateArray();
 
   std::puts("\n--- Session Creo : nom du modèle actif ---");
 #if CREO_WRAPPER_HAS_REAL_SDK
