@@ -54,6 +54,7 @@ using ProErrorCode = ::ProError;
 using RawMdl = ::ProMdl;
 using RawObjectType = ::ProType;
 using RawArray = ::ProArray;
+using RawBoolean = ::ProBoolean;
 
 // Trampolines vers les fonctions ProArray réelles : creo::Array<T> (voir
 // creo/array.hpp) appelle ces alias, jamais ::ProArrayXxx ni
@@ -105,9 +106,13 @@ inline constexpr int kMacroSize = PRO_MACRO_SIZE;
 
 inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
 
-// Sentinelle "valeur non utilisée/en fin de tableau" — voir creo::kUnused
-// dans types.hpp pour le détail et la réserve sur sa valeur en mode shim.
+// Sentinelles "valeur non utilisée" / "valeur par défaut" — voir
+// creo::ValueUnused/ValueDefault dans types.hpp.
 inline constexpr int kValueUnused = PRO_VALUE_UNUSED;
+inline constexpr int kValueDefault = PRO_VALUE_DEFAULT;
+
+inline constexpr RawBoolean kBooleanFalse = PRO_B_FALSE;
+inline constexpr RawBoolean kBooleanTrue = PRO_B_TRUE;
 
 #else
 
@@ -116,6 +121,7 @@ using ProErrorCode = shim::ProError;
 using RawMdl = shim::ProMdl;
 using RawObjectType = shim::ProType;
 using RawArray = shim::ProArray;
+using RawBoolean = shim::ProBoolean;
 
 inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
                                 int reallocation_size, RawArray *p_array) {
@@ -150,6 +156,10 @@ inline constexpr int kMacroSize = shim::kMacroSize;
 
 inline constexpr ProErrorCode kNoError = shim::PRO_TK_NO_ERROR;
 inline constexpr int kValueUnused = shim::kValueUnused;
+inline constexpr int kValueDefault = shim::kValueDefault;
+
+inline constexpr RawBoolean kBooleanFalse = shim::PRO_B_FALSE;
+inline constexpr RawBoolean kBooleanTrue = shim::PRO_B_TRUE;
 
 #endif
 

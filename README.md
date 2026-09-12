@@ -237,17 +237,35 @@ std::filesystem::path fs = creo::ToFilesystemPath(path);
 creo::Path p = creo::PathFromFilesystem(fs / "sous_dossier" / "piece.prt");
 ```
 
-`creo::ValueUnused` correspond à `PRO_VALUE_UNUSED`, la sentinelle
+`creo::ValueUnused` correspond à `PRO_VALUE_UNUSED` (= -1), la sentinelle
 "valeur/index non utilisé" acceptée par de nombreuses fonctions ProTOOLKIT
 (par ex. tout index négatif passé à `ProArrayObjectAdd` ajoute en fin de
 tableau — `ValueUnused` en est un exemple, pas la seule valeur qui
-déclenche ce comportement). **Réserve de confiance** : en mode SDK réel,
-reprend directement la macro PTC ; en mode shim, vaut `-1` par convergence
-de sources secondaires, `support.ptc.com` n'ayant pas pu être consultée
-directement pour vérifier cette valeur précise au moment du développement
-de ce wrapper. Sans conséquence pratique ici (le wrapper ne teste jamais
-l'égalité avec cette constante, seulement `< 0`), mais à confirmer contre
-le SDK réel en cas de doute.
+déclenche ce comportement). `creo::ValueDefault` correspond à
+`PRO_VALUE_DEFAULT` (= -5), la sentinelle "valeur par défaut" — distincte
+de `PRO_VALUE_UNUSED` malgré la proximité des noms, à ne pas confondre
+dans un appel ProTOOLKIT. En mode SDK réel, les deux reprennent
+directement les macros PTC.
+
+### Boolean
+
+`creo::Boolean` correspond à `ProBoolean`/`ProBool` (`ProToolkit.h`, enum
+`ProBooleans` : `PRO_B_FALSE = 0`, `PRO_B_TRUE = 1`) — le booléen
+ProTOOLKIT, un type distinct du `bool` C++ bien que ses deux valeurs
+coïncident numériquement avec `false`/`true`. De nombreuses fonctions
+ProTOOLKIT prennent ou renvoient précisément ce type, jamais un `bool`
+C++ :
+
+```cpp
+creo::Boolean flag = creo::ToProBoolean(true);
+// ... CREO_CHECK(UneFonctionProtoolkit(..., flag));
+
+bool value = creo::ToBool(flag);
+```
+
+`ToBool()` teste `!= PRO_B_FALSE` plutôt que `== PRO_B_TRUE`, par prudence
+défensive envers une valeur qui ne serait ni l'une ni l'autre des deux
+documentées.
 
 ### ModelHandle
 
@@ -420,9 +438,10 @@ confondre tronquerait silencieusement un nom de modèle trop long pour un
 
 `MaxAssemLevel` (= 25, `PRO_MAX_ASSEM_LEVEL`) est aussi exposé, mais ce
 n'est pas une taille de buffer : c'est le nombre maximum de niveaux
-d'imbrication d'assemblage pris en charge par ProTOOLKIT. `ValueUnused`
-(`PRO_VALUE_UNUSED`) est documenté plus haut, voir « Comparaisons, `View()`
-et interopérabilité ».
+d'imbrication d'assemblage pris en charge par ProTOOLKIT. `ValueUnused`/
+`ValueDefault` (`PRO_VALUE_UNUSED`/`PRO_VALUE_DEFAULT`) et `Boolean`
+(`ProBoolean`/`ProBool`) sont documentés plus haut, voir « Comparaisons,
+`View()` et interopérabilité » et « Boolean ».
 
 ## Contribuer
 

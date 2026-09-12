@@ -91,6 +91,17 @@ void DemonstrateTypes() {
   std::printf("Round-trip filesystem::path : %s\n",
               round_trip.ToString().c_str());
 
+  std::puts("\n--- Boolean (ProBoolean/ProBool) ---");
+
+  // ProBoolean est un type distinct du bool C++ côté ProTOOLKIT (même si
+  // ses deux valeurs, PRO_B_FALSE/PRO_B_TRUE, coïncident numériquement
+  // avec false/true) : ToBool()/ToProBoolean() évitent d'écrire la
+  // conversion à la main à chaque appel d'une fonction qui en attend un.
+  creo::Boolean flag = creo::ToProBoolean(true);
+  std::printf("ToBool(flag) : %s\n", creo::ToBool(flag) ? "true" : "false");
+  std::printf("ValueUnused = %d, ValueDefault = %d\n", creo::ValueUnused,
+              creo::ValueDefault);
+
   std::puts("\n--- Gestion d'erreurs : CREO_CHECK / ProToolkitError ---");
 
   // Simule un appel ProTOOLKIT qui échouerait avec PRO_TK_BAD_INPUTS (-2),

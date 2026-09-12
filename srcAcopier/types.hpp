@@ -234,6 +234,8 @@ inline constexpr int MaxAssemLevel = detail::kMaxAssemLevel;
 
 inline constexpr int ValueUnused = detail::kValueUnused;
 
+inline constexpr int ValueDefault = detail::kValueDefault;
+
 using Macro = FixedWString<detail::kMacroSize>;
 
 using MdlFileName = FixedWString<detail::kFileMdlNameSize>;
@@ -261,6 +263,15 @@ using MenuFileName = FixedCharString<detail::kNameSize>;
 using MenuButtonName = FixedCharString<detail::kNameSize>;
 
 using ObjectType = detail::RawObjectType;
+
+using Boolean = detail::RawBoolean;
+
+constexpr bool ToBool(Boolean value) noexcept {
+  return value != detail::kBooleanFalse;
+}
+constexpr Boolean ToProBoolean(bool value) noexcept {
+  return value ? detail::kBooleanTrue : detail::kBooleanFalse;
+}
 
 class ModelHandle {
 public:

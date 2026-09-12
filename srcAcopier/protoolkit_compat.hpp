@@ -13,6 +13,7 @@ using ProErrorCode = ::ProError;
 using RawMdl = ::ProMdl;
 using RawObjectType = ::ProType;
 using RawArray = ::ProArray;
+using RawBoolean = ::ProBoolean;
 
 inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
                                 int reallocation_size, RawArray *p_array) {
@@ -49,6 +50,10 @@ inline constexpr int kMacroSize = PRO_MACRO_SIZE;
 inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
 
 inline constexpr int kValueUnused = PRO_VALUE_UNUSED;
+inline constexpr int kValueDefault = PRO_VALUE_DEFAULT;
+
+inline constexpr RawBoolean kBooleanFalse = PRO_B_FALSE;
+inline constexpr RawBoolean kBooleanTrue = PRO_B_TRUE;
 
 inline constexpr int kFileMdlNameSize =
     kMdlNameSize + kMdlExtensionSize + kVersionSize;

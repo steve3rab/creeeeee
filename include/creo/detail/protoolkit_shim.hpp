@@ -59,15 +59,27 @@ constexpr int kFamilyNameSize = kNameSize + kNameSize + 2;
 // PRO_VALUE_UNUSED : sentinelle "valeur non utilisée"/"en fin de tableau"
 // employée dans de nombreuses signatures ProTOOLKIT (déjà rencontrée dans
 // ProArray.h : "si index < 0 (PRO_VALUE_UNUSED), ajoute en fin de
-// tableau"). AVERTISSEMENT : sa valeur exacte (-1) n'a PAS été vérifiée
-// sur une page ProTOOLKIT primaire dans cette session — support.ptc.com
-// est bloqué par la politique réseau de l'environnement où ce wrapper a
-// été développé. -1 vient de résultats de recherche web secondaires
-// convergents et reste cohérent avec la documentation ProArray.h ("toute
-// valeur négative"), mais n'a pas le même niveau de confiance que les
-// autres constantes de ce fichier (fournies directement par l'utilisateur
-// à partir des en-têtes réels). À corriger si vous disposez du SDK.
+// tableau"). Valeur confirmée par l'utilisateur à partir de l'en-tête réel
+// (`#define PRO_VALUE_UNUSED (-1)`).
 constexpr int kValueUnused = -1;
+
+// PRO_VALUE_DEFAULT : sentinelle "valeur par défaut" (distincte de
+// PRO_VALUE_UNUSED, ne pas confondre les deux malgré des noms proches).
+// Valeur confirmée par l'utilisateur à partir de l'en-tête réel
+// (`#define PRO_VALUE_DEFAULT (-5)`).
+constexpr int kValueDefault = -5;
+
+// Reproduction fidèle de `ProBooleans` (ProToolkit.h) : booléen ProTOOLKIT,
+// distinct du bool C++ bien que ses deux valeurs coïncident numériquement
+// avec false/true — de nombreuses fonctions ProTOOLKIT prennent/renvoient
+// ce type précis (pas un bool C++, qui n'a pas de représentation binaire
+// standardisée en C). Le SDK PTC expose les deux noms ProBoolean/ProBool
+// pour le même type. Voir creo::ToBool()/ToProBoolean() (types.hpp) pour
+// convertir depuis/vers un bool C++ sans écrire de comparaison explicite
+// à chaque appel.
+enum ProBooleans { PRO_B_FALSE = 0, PRO_B_TRUE = 1 };
+using ProBoolean = ProBooleans;
+using ProBool = ProBooleans;
 
 // Handle de modèle Creo (ProMdl) : un pointeur opaque, jamais déréférencé
 // par le code appelant. Seul ProTOOLKIT connaît la structure pointée ; on

@@ -351,17 +351,17 @@ using ModelExtension = FixedWString<detail::kMdlExtensionSize>;
 // constantes ProTOOLKIT du wrapper.
 inline constexpr int MaxAssemLevel = detail::kMaxAssemLevel;
 
-// Correspond à `PRO_VALUE_UNUSED` : sentinelle "valeur non utilisée" que
-// de nombreuses fonctions ProTOOLKIT acceptent en lieu et place d'un index
-// ou d'une valeur explicite (par ex. ProArrayObjectAdd : tout index
-// négatif ajoute en fin de tableau — PRO_VALUE_UNUSED en est un exemple,
-// pas la seule valeur qui déclenche ce comportement). En mode SDK réel,
-// reprend directement la macro PTC. En mode shim, vaut -1 par convergence
-// de sources secondaires (support.ptc.com était inaccessible au moment où
-// ce wrapper a été développé) : à confirmer contre le SDK réel si un
-// doute existe, mais sans conséquence pratique ici puisque le wrapper ne
-// teste jamais l'égalité avec cette valeur, seulement `< 0`.
+// Correspond à `PRO_VALUE_UNUSED` (= -1) : sentinelle "valeur non
+// utilisée" que de nombreuses fonctions ProTOOLKIT acceptent en lieu et
+// place d'un index ou d'une valeur explicite (par ex. ProArrayObjectAdd :
+// tout index négatif ajoute en fin de tableau — PRO_VALUE_UNUSED en est un
+// exemple, pas la seule valeur qui déclenche ce comportement).
 inline constexpr int ValueUnused = detail::kValueUnused;
+
+// Correspond à `PRO_VALUE_DEFAULT` (= -5) : sentinelle "valeur par
+// défaut", distincte de PRO_VALUE_UNUSED malgré la proximité des noms — ne
+// pas les confondre dans un appel ProTOOLKIT.
+inline constexpr int ValueDefault = detail::kValueDefault;
 
 // Correspond à `ProMacro` (taille PRO_MACRO_SIZE = 256). Note PTC reprise
 // ici : cette taille n'est plus une limite réelle pour ProMacroLoad(), le
@@ -442,6 +442,30 @@ using MenuButtonName = FixedCharString<detail::kNameSize>;
 // PRO_DRAWING (4), PRO_MFG (37), PRO_SUB_ASSEMBLY (34), PRO_DWGFORM (33),
 // PRO_LAYOUT (19), PRO_REPORT (105), PRO_MARKUP (116), PRO_DIAGRAM (121).
 using ObjectType = detail::RawObjectType;
+
+// ---------------------------------------------------------------------------
+// Boolean
+// ---------------------------------------------------------------------------
+// Correspond à `ProBoolean`/`ProBool` (ProToolkit.h, enum ProBooleans :
+// PRO_B_FALSE = 0, PRO_B_TRUE = 1) : le booléen ProTOOLKIT, un type
+// distinct du bool C++ bien que ses deux valeurs coïncident numériquement
+// avec false/true. De nombreuses fonctions ProTOOLKIT prennent ou
+// renvoient précisément ce type (pas un bool C++) : Boolean est réexposé
+// tel quel (alias direct, comme ObjectType) pour rester interopérable avec
+// elles sans conversion implicite hasardeuse.
+using Boolean = detail::RawBoolean;
+
+// Conversions explicites avec le bool C++ : évitent d'écrire
+// `x == creo::Boolean{}` (peu lisible) ou de caster à la main à chaque
+// appel. ToBool() teste `!= PRO_B_FALSE` plutôt que `== PRO_B_TRUE` par
+// prudence défensive : rien ne garantit qu'une fonction ProTOOLKIT ne
+// renvoie jamais qu'une des deux valeurs documentées pour un Boolean.
+constexpr bool ToBool(Boolean value) noexcept {
+  return value != detail::kBooleanFalse;
+}
+constexpr Boolean ToProBoolean(bool value) noexcept {
+  return value ? detail::kBooleanTrue : detail::kBooleanFalse;
+}
 
 // ---------------------------------------------------------------------------
 // ModelHandle
