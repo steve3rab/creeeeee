@@ -215,6 +215,55 @@ inline ProError ProMdlCurrentGet(ProMdl *p_mdl) {
   return PRO_TK_NOT_IMPLEMENTED;
 }
 
+// Reproduces the signature of ProMdlActiveGet (ProAssembly.h), for
+// ModelHandle::GetActive() to compile in shim mode. Same rationale as
+// ProMdlCurrentGet's stub above: no real session, no active model
+// either (whatever the precise PTC distinction between "current" and
+// "active" turns out to be for a given session).
+inline ProError ProMdlActiveGet(ProMdl *p_mdl) {
+  if (p_mdl == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// Reproduces the signature of ProMdlExtensionGet (ProAssembly.h), for
+// ModelHandle::Extension() to compile in shim mode.
+inline ProError ProMdlExtensionGet(ProMdl model, wchar_t *ext_out) {
+  if (model == nullptr || ext_out == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// Reproduces the signature of ProMdlDirectoryPathGet (ProAssembly.h),
+// for ModelHandle::DirectoryPath() to compile in shim mode.
+inline ProError ProMdlDirectoryPathGet(ProMdl model, wchar_t *dir_path_out) {
+  if (model == nullptr || dir_path_out == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// Reproduces the signature of ProMdlDisplay (ProAssembly.h), for
+// ModelHandle::Display() to compile in shim mode. There is no window to
+// display anything in without a real session.
+inline ProError ProMdlDisplay(ProMdl model) {
+  if (model == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// Reproduces the signature of ProMdlWindowGet (ProAssembly.h), for
+// ModelHandle::WindowId() to compile in shim mode.
+inline ProError ProMdlWindowGet(ProMdl model, int *window_id) {
+  if (model == nullptr || window_id == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
 // Faithful reproduction of `ProType` (struct pro_obj_types,
 // ProObjects.h, Creo 10): the broad Creo database object type — models
 // (PRO_PART, PRO_ASSEMBLY, PRO_DRAWING, PRO_MFG, ...) are only a small
@@ -827,6 +876,32 @@ inline ProError ProArrayObjectRemove(ProArray *p_array, int index,
         static_cast<std::size_t>(tail_count) * obj_size);
   }
   header->size = old_size - n_objects;
+  return PRO_TK_NO_ERROR;
+}
+
+// Reproduces the signature of ProSessionMdlList (ProAssembly.h), for
+// ModelHandle::List() (model_handle.hpp) to compile in shim mode.
+// Unlike the ProMdl*-returning stubs above, this one is genuinely
+// functional rather than an always-failing stub: ProArray itself is
+// fully implemented in this shim (see above), and "there are zero
+// models in a session that does not exist" is an honest answer, not a
+// fabricated one — so this allocates and returns a real, empty ProArray
+// rather than failing outright, exactly matching PTC's own documented
+// contract ("the function allocates the memory for this argument; call
+// ProArrayFree() to free it").
+inline ProError ProSessionMdlList(ProMdlType model_type,
+                                   ProMdl **p_model_array, int *p_count) {
+  (void)model_type;
+  if (p_model_array == nullptr || p_count == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  ProArray array = nullptr;
+  ProError err = ProArrayAlloc(0, static_cast<int>(sizeof(ProMdl)), 1, &array);
+  if (err != PRO_TK_NO_ERROR) {
+    return err;
+  }
+  *p_model_array = static_cast<ProMdl *>(array);
+  *p_count = 0;
   return PRO_TK_NO_ERROR;
 }
 

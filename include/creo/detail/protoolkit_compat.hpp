@@ -36,6 +36,7 @@
 // it is included transitively by the headers below, so it is included
 // explicitly instead of relying on that.
 #include <ProArray.h>
+#include <ProAssembly.h>
 #include <ProMdl.h>
 #include <ProObjects.h>
 #include <ProSizeConst.h>
@@ -118,6 +119,27 @@ inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return ::ProFeatureRegenerate(solid, feature);
 }
 
+// Trampolines below are to ProAssembly.h functions (see the
+// ModelHandle methods of the same name, minus "Mdl"/"Session", in
+// model_handle.hpp).
+inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
+  return ::ProMdlActiveGet(p_mdl);
+}
+inline ProErrorCode MdlExtensionGet(RawMdl model, wchar_t *ext_out) {
+  return ::ProMdlExtensionGet(model, ext_out);
+}
+inline ProErrorCode MdlDirectoryPathGet(RawMdl model, wchar_t *dir_path_out) {
+  return ::ProMdlDirectoryPathGet(model, dir_path_out);
+}
+inline ProErrorCode MdlDisplay(RawMdl model) { return ::ProMdlDisplay(model); }
+inline ProErrorCode MdlWindowGet(RawMdl model, int *window_id) {
+  return ::ProMdlWindowGet(model, window_id);
+}
+inline ProErrorCode SessionMdlList(RawMdlType model_type,
+                                    RawMdl **p_model_array, int *p_count) {
+  return ::ProSessionMdlList(model_type, p_model_array, p_count);
+}
+
 // "Atomic" sizes (official PTC constants, ProSizeConst.h, Creo 10).
 inline constexpr int kLineSize = PRO_LINE_SIZE;
 inline constexpr int kPathSize = PRO_PATH_SIZE;
@@ -185,6 +207,25 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
 }
 inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return shim::ProFeatureRegenerate(solid, feature);
+}
+inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
+  return shim::ProMdlActiveGet(p_mdl);
+}
+inline ProErrorCode MdlExtensionGet(RawMdl model, wchar_t *ext_out) {
+  return shim::ProMdlExtensionGet(model, ext_out);
+}
+inline ProErrorCode MdlDirectoryPathGet(RawMdl model, wchar_t *dir_path_out) {
+  return shim::ProMdlDirectoryPathGet(model, dir_path_out);
+}
+inline ProErrorCode MdlDisplay(RawMdl model) {
+  return shim::ProMdlDisplay(model);
+}
+inline ProErrorCode MdlWindowGet(RawMdl model, int *window_id) {
+  return shim::ProMdlWindowGet(model, window_id);
+}
+inline ProErrorCode SessionMdlList(RawMdlType model_type,
+                                    RawMdl **p_model_array, int *p_count) {
+  return shim::ProSessionMdlList(model_type, p_model_array, p_count);
 }
 
 inline constexpr int kLineSize = shim::kLineSize;

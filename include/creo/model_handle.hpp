@@ -1,4 +1,5 @@
 #pragma once
+#include "creo/array.hpp"
 #include "creo/detail/protoolkit_compat.hpp"
 #include "creo/error.hpp"
 #include "creo/object_type.hpp"
@@ -54,6 +55,42 @@ public:
     return ModelHandle(raw_mdl);
   }
 
+  // The model currently active in the Creo session (ProMdlActiveGet) --
+  // a distinct PTC function and concept from GetCurrent()/
+  // ProMdlCurrentGet above (e.g. across multiple windows, "current" and
+  // "active" need not be the same model); this wrapper does not assert a
+  // precise definition of the difference PTC intends, only that they are
+  // two separate calls PTC exposes, wrapped separately here rather than
+  // conflated into one. Same defensive null check and rationale as
+  // GetCurrent().
+  static ModelHandle GetActive() {
+    detail::RawMdl raw_mdl = nullptr;
+    CREO_CHECK(detail::MdlActiveGet(&raw_mdl));
+    if (raw_mdl == nullptr) {
+      throw ProToolkitError(static_cast<ErrorCode>(-4), // PRO_TK_E_NOT_FOUND
+                             "ProMdlActiveGet (no active model)");
+    }
+    return ModelHandle(raw_mdl);
+  }
+
+  // All models of a given type currently loaded in the session
+  // (ProSessionMdlList). PTC documents this as allocating a ProArray
+  // that the caller must free with ProArrayFree() -- exactly the
+  // ownership-transfer case Array<T>::Adopt() exists for. This works
+  // because ModelHandle is trivially copyable (a single raw pointer, no
+  // user-declared copy/move/destructor) and has the exact same layout as
+  // the raw ProMdl the array actually holds, so reinterpreting the
+  // returned ProMdl* as a ModelHandle* (what Adopt() does internally) is
+  // valid -- Array<T>::Adopt()'s own static_assert enforces this even if
+  // ModelHandle's implementation ever changed to break that assumption.
+  static Array<ModelHandle> List(MdlType type) {
+    detail::RawMdl *raw_array = nullptr;
+    int count = 0;
+    CREO_CHECK(detail::SessionMdlList(type, &raw_array, &count));
+    return Array<ModelHandle>::Adopt(
+        static_cast<detail::RawArray>(raw_array));
+  }
+
   bool IsValid() const noexcept { return handle_ != nullptr; }
   explicit operator bool() const noexcept { return IsValid(); }
 
@@ -86,6 +123,58 @@ public:
     MdlType type;
     CREO_CHECK(detail::MdlTypeGet(handle_, &type));
     return type;
+  }
+
+  // The model's file extension (ProMdlExtensionGet). Same invalid-handle
+  // guard and rationale as Name() above.
+  ModelExtension Extension() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Extension() called on an invalid (null) "
+          "handle");
+    }
+    ModelExtension ext;
+    CREO_CHECK(detail::MdlExtensionGet(handle_, ext.Raw()));
+    return ext;
+  }
+
+  // The directory the model will be saved to (ProMdlDirectoryPathGet).
+  // Same invalid-handle guard and rationale as Name() above.
+  Path DirectoryPath() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::DirectoryPath() called on an invalid (null) "
+          "handle");
+    }
+    Path dir_path;
+    CREO_CHECK(detail::MdlDirectoryPathGet(handle_, dir_path.Raw()));
+    return dir_path;
+  }
+
+  // Displays the model in its window (ProMdlDisplay). Same invalid-handle
+  // guard and rationale as Name() above.
+  void Display() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Display() called on an invalid (null) "
+          "handle");
+    }
+    CREO_CHECK(detail::MdlDisplay(handle_));
+  }
+
+  // The identifier of the window this (top-level) model is shown in
+  // (ProMdlWindowGet). A plain int, like ProTOOLKIT itself: this wrapper
+  // does not (yet) have a dedicated window handle type. Same
+  // invalid-handle guard and rationale as Name() above.
+  int WindowId() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::WindowId() called on an invalid (null) "
+          "handle");
+    }
+    int window_id = 0;
+    CREO_CHECK(detail::MdlWindowGet(handle_, &window_id));
+    return window_id;
   }
 
   // Raw handle, for direct calls to ProTOOLKIT functions not (yet)

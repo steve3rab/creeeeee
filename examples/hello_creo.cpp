@@ -21,6 +21,14 @@
 //     (CREO_TOOLKIT_ROOT, see README) to do anything useful; otherwise
 //     main() prints an explanatory message.
 //
+//  4) PrintSessionModelInfo(): tours the ProAssembly.h-declared session
+//     functions — ModelHandle::GetActive(), Extension(), DirectoryPath(),
+//     WindowId(), Display(), and the static ModelHandle::List() — each
+//     wrapping its own ProTOOLKIT call (ProMdlActiveGet,
+//     ProMdlExtensionGet, ProMdlDirectoryPathGet, ProMdlWindowGet,
+//     ProMdlDisplay, ProSessionMdlList respectively). Same real-SDK-only
+//     caveat as PrintCurrentModelName().
+//
 // Technical note: this file only uses std::printf/std::puts (never
 // std::wprintf) for output. Mixing "wide" and "narrow" calls on the same
 // stdout stream is undefined behavior in C/C++ (the stream locks onto
@@ -203,6 +211,37 @@ bool PrintCurrentModelName() {
     return false;
   }
 }
+
+// Tours the six ProAssembly.h wrappers added alongside GetCurrent().
+// Each call is independent (one try/catch per call) so that one missing
+// piece of session state (e.g. no active model) does not prevent seeing
+// the others succeed or fail on their own terms.
+void PrintSessionModelInfo() {
+  try {
+    creo::ModelHandle active = creo::ModelHandle::GetActive();
+    std::printf("Active model (ProMdlActiveGet): %s\n",
+                active.Name().ToString().c_str());
+
+    std::printf("  Extension: %s\n", active.Extension().ToString().c_str());
+    std::printf("  Directory: %s\n", active.DirectoryPath().ToString().c_str());
+    std::printf("  Window id: %d\n", active.WindowId());
+
+    active.Display();
+    std::puts("  Display() sent to Creo.");
+
+  } catch (const creo::ProToolkitError &e) {
+    std::printf("Could not inspect the active model: %s\n", e.what());
+  }
+
+  try {
+    creo::Array<creo::ModelHandle> parts =
+        creo::ModelHandle::List(creo::MdlType::PRO_MDL_PART);
+    std::printf("Parts loaded in session (ProSessionMdlList): %d\n",
+                parts.Size());
+  } catch (const creo::ProToolkitError &e) {
+    std::printf("Could not list session models: %s\n", e.what());
+  }
+}
 #endif
 
 } // namespace
@@ -219,6 +258,9 @@ int main() {
     std::puts("\n--- Creo session: active model name ---");
 #if CREO_WRAPPER_HAS_REAL_SDK
     PrintCurrentModelName();
+
+    std::puts("\n--- Creo session: ProAssembly.h wrappers ---");
+    PrintSessionModelInfo();
 #else
     std::puts(
         "ProTOOLKIT SDK not found: this part was built in 'shim' mode. "

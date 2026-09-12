@@ -334,6 +334,41 @@ name):
 if (model1 == model2) { /* same model */ }
 ```
 
+`ModelHandle` also wraps the session-level functions declared under
+`ProAssembly.h` (despite the header's name, several of these are generic
+`ProMdl`/session functions, not assembly-specific ones):
+
+```cpp
+creo::ModelHandle active = creo::ModelHandle::GetActive();  // ProMdlActiveGet
+
+creo::ModelExtension ext = active.Extension();       // ProMdlExtensionGet
+creo::Path dir = active.DirectoryPath();             // ProMdlDirectoryPathGet
+int window_id = active.WindowId();                   // ProMdlWindowGet
+active.Display();                                    // ProMdlDisplay
+
+creo::Array<creo::ModelHandle> parts =
+    creo::ModelHandle::List(creo::MdlType::PRO_MDL_PART);  // ProSessionMdlList
+```
+
+`GetActive()` (`ProMdlActiveGet`) is a distinct PTC function and concept
+from `GetCurrent()`/`ProMdlCurrentGet` above — across multiple windows,
+"current" and "active" need not be the same model. This wrapper does not
+assert a precise definition of the difference PTC intends, only that they
+are two separate calls PTC exposes, wrapped separately here rather than
+conflated into one. `Extension()`, `DirectoryPath()`, `Display()` and
+`WindowId()` follow the same invalid-handle guard (`std::logic_error` on a
+null handle) and `ProToolkitError` conventions as `Name()`/`Type()` above.
+
+`List()` wraps `ProSessionMdlList`, which PTC documents as allocating a
+`ProArray` that the caller must free with `ProArrayFree()` — exactly the
+ownership-transfer case `Array<T>::Adopt()` exists for (see
+"Array&lt;T&gt;" below). This works because `ModelHandle` is trivially
+copyable (a single raw pointer, no user-declared copy/move/destructor) and
+has the exact same layout as the raw `ProMdl` the array actually holds, so
+reinterpreting the returned `ProMdl*` as a `ModelHandle*` is valid —
+`Array<T>::Adopt()`'s own `static_assert` enforces this even if
+`ModelHandle`'s implementation ever changed to break that assumption.
+
 ### ModelItem
 
 `creo::ModelItem` corresponds to `pro_model_item` (`ProObjects.h`): a

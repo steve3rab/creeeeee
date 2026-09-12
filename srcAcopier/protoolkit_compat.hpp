@@ -3,6 +3,7 @@
 #define CREO_WRAPPER_HAS_REAL_SDK 1
 
 #include <ProArray.h>
+#include <ProAssembly.h>
 #include <ProMdl.h>
 #include <ProObjects.h>
 #include <ProSizeConst.h>
@@ -50,6 +51,29 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
 
 inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return ::ProFeatureRegenerate(solid, feature);
+}
+
+inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
+  return ::ProMdlActiveGet(p_mdl);
+}
+
+inline ProErrorCode MdlExtensionGet(RawMdl model, wchar_t *ext_out) {
+  return ::ProMdlExtensionGet(model, ext_out);
+}
+
+inline ProErrorCode MdlDirectoryPathGet(RawMdl model, wchar_t *dir_path_out) {
+  return ::ProMdlDirectoryPathGet(model, dir_path_out);
+}
+
+inline ProErrorCode MdlDisplay(RawMdl model) { return ::ProMdlDisplay(model); }
+
+inline ProErrorCode MdlWindowGet(RawMdl model, int *window_id) {
+  return ::ProMdlWindowGet(model, window_id);
+}
+
+inline ProErrorCode SessionMdlList(RawMdlType model_type,
+                                    RawMdl **p_model_array, int *p_count) {
+  return ::ProSessionMdlList(model_type, p_model_array, p_count);
 }
 
 inline constexpr int kLineSize = PRO_LINE_SIZE;
