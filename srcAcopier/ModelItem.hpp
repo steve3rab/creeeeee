@@ -6,8 +6,11 @@
 #include "Text.hpp"
 
 #include <exception>
+#include <optional>
+#include <string_view>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace creo {
 
@@ -112,6 +115,42 @@ ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action) {
   return VisitFeatures(
       solid, std::forward<ActionFn>(action),
       [](const Feature &) { return static_cast<ErrorCode>(0); });
+}
+
+inline std::vector<Feature> CollectFeatures(const ModelHandle &solid) {
+  std::vector<Feature> features;
+  VisitFeatures(solid, [&](const Feature &feature, ErrorCode) {
+    features.push_back(feature);
+    return static_cast<ErrorCode>(0);
+  });
+  return features;
+}
+
+template <typename FilterFn>
+std::vector<Feature> CollectFeatures(const ModelHandle &solid,
+                                      FilterFn &&filter) {
+  std::vector<Feature> features;
+  VisitFeatures(
+      solid,
+      [&](const Feature &feature, ErrorCode) {
+        features.push_back(feature);
+        return static_cast<ErrorCode>(0);
+      },
+      std::forward<FilterFn>(filter));
+  return features;
+}
+
+inline std::optional<Feature> FindFeatureByName(const ModelHandle &solid,
+                                                 std::wstring_view name) {
+  std::optional<Feature> found;
+  VisitFeatures(solid, [&](const Feature &feature, ErrorCode) {
+    if (feature.GetName().View() == name) {
+      found = feature;
+      return static_cast<ErrorCode>(-3);
+    }
+    return static_cast<ErrorCode>(0);
+  });
+  return found;
 }
 
 using GeomItem = ModelItem;

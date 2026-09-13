@@ -41,9 +41,13 @@
 //     wrapper around ProSolidFeatVisit (PTC's "visit function" pattern
 //     for a solid's features) — pass ordinary capturing lambdas as the
 //     action/filter instead of routing through a raw C function pointer
-//     and a void* ProAppData by hand. Requires the real SDK (an actual
-//     solid to visit) to do anything useful; otherwise it just shows the
-//     "no current model" path.
+//     and a void* ProAppData by hand — plus CollectFeatures()/
+//     FindFeatureByName(), convenience wrappers built on top of it (no
+//     ProTOOLKIT call of their own), mirroring PTC's own
+//     ProUtilCollectSolidFeatures()/ProUtilFindFeatureByName() sample
+//     utilities. Requires the real SDK (an actual solid to visit) to do
+//     anything useful; otherwise it just shows the "no current model"
+//     path.
 //
 // Technical note: this file only uses std::printf/std::puts (never
 // std::wprintf) for output. Mixing "wide" and "narrow" calls on the same
@@ -60,6 +64,7 @@
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 
@@ -334,6 +339,20 @@ void PrintFeatures() {
                 static_cast<int>(result), considered);
   } else {
     std::printf("Visited %d feature(s)\n", considered);
+  }
+
+  // CollectFeatures()/FindFeatureByName(): convenience wrappers built on
+  // VisitFeatures(), needing no ProTOOLKIT call of their own.
+  std::vector<creo::Feature> features = creo::CollectFeatures(*active);
+  std::printf("CollectFeatures() -> %zu feature(s)\n", features.size());
+
+  if (!features.empty()) {
+    creo::Name first_name = features.front().GetName();
+    if (std::optional<creo::Feature> found =
+            creo::FindFeatureByName(*active, first_name.View())) {
+      std::printf("FindFeatureByName(%s) -> id = %d\n",
+                  first_name.ToString().c_str(), found->Id());
+    }
   }
 }
 #endif

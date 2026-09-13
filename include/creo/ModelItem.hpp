@@ -6,8 +6,11 @@
 #include "creo/Text.hpp"
 
 #include <exception>
+#include <optional>
+#include <string_view>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace creo {
 
@@ -221,6 +224,69 @@ ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action) {
   return VisitFeatures(
       solid, std::forward<ActionFn>(action),
       [](const Feature &) { return static_cast<ErrorCode>(0); }); // PRO_TK_NO_ERROR
+}
+
+// ---------------------------------------------------------------------------
+// CollectFeatures() / FindFeatureByName(): convenience wrappers built on
+// VisitFeatures(), mirroring PTC's own ProUtilCollectSolidFeatures()/
+// ProUtilCollectSolidFeaturesWithFilter()/ProUtilFindFeatureByName()
+// (PTC's ProUtilVisit.c sample utility, pasted verbatim by the user) --
+// no new PTC binding needed for either, both are plain C++ built on top
+// of the already-wrapped VisitFeatures()/ModelItem::GetName().
+// ---------------------------------------------------------------------------
+
+// Collects every feature of `solid` into a std::vector<Feature>. Unlike
+// PTC's own ProUtilCollectSolidFeatures(), there is no ProArray to
+// allocate/free by hand: VisitFeatures() already owns the visit itself,
+// a plain std::vector is enough on this side. PRO_TK_E_NOT_FOUND (no
+// feature exists) is not an error here, it is simply an empty vector --
+// this wrapper's own action always returns PRO_TK_NO_ERROR, so
+// VisitFeatures() only ever stops "early" by finding nothing to visit
+// at all, never by this function's own choice.
+inline std::vector<Feature> CollectFeatures(const ModelHandle &solid) {
+  std::vector<Feature> features;
+  VisitFeatures(solid, [&](const Feature &feature, ErrorCode) {
+    features.push_back(feature);
+    return static_cast<ErrorCode>(0); // PRO_TK_NO_ERROR: keep visiting
+  });
+  return features;
+}
+
+// Same as above, but only collects features `filter` selects (mirrors
+// ProUtilCollectSolidFeaturesWithFilter()): `filter` follows
+// VisitFeatures()'s own filter contract (PRO_TK_CONTINUE skips the
+// item; anything else collects it).
+template <typename FilterFn>
+std::vector<Feature> CollectFeatures(const ModelHandle &solid,
+                                      FilterFn &&filter) {
+  std::vector<Feature> features;
+  VisitFeatures(
+      solid,
+      [&](const Feature &feature, ErrorCode) {
+        features.push_back(feature);
+        return static_cast<ErrorCode>(0); // PRO_TK_NO_ERROR
+      },
+      std::forward<FilterFn>(filter));
+  return features;
+}
+
+// Returns the first feature of `solid` whose name (GetName(),
+// ProModelitemNameGet) matches `name`, or std::nullopt if none does.
+// Stops visiting as soon as a match is found (PRO_TK_USER_ABORT, PTC's
+// own established code for exactly this "found what I was looking for"
+// case, per ProUtilFindFeatureByName()) rather than visiting every
+// remaining feature once the answer is already known.
+inline std::optional<Feature> FindFeatureByName(const ModelHandle &solid,
+                                                 std::wstring_view name) {
+  std::optional<Feature> found;
+  VisitFeatures(solid, [&](const Feature &feature, ErrorCode) {
+    if (feature.GetName().View() == name) {
+      found = feature;
+      return static_cast<ErrorCode>(-3); // PRO_TK_USER_ABORT: stop, found it
+    }
+    return static_cast<ErrorCode>(0); // PRO_TK_NO_ERROR: keep looking
+  });
+  return found;
 }
 
 // PTC gives `pro_model_item` one typedef name per kind of database

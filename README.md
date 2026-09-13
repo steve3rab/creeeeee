@@ -594,6 +594,47 @@ raw trampoline's bookkeeping does.
 > header declares it. If that turns out to be none of them, the real-SDK
 > build fails to compile right there, loudly.
 
+#### CollectFeatures() / FindFeatureByName()
+
+Two convenience wrappers built entirely on top of `VisitFeatures()` — no
+new ProTOOLKIT binding for either — mirroring two of PTC's own utility
+functions from its `ProUtilVisit.c` sample (`ProUtilCollectSolidFeatures`/
+`ProUtilCollectSolidFeaturesWithFilter` and `ProUtilFindFeatureByName`,
+pasted verbatim by the user alongside dozens of other visit-based
+utilities for other object types not yet wrapped here).
+
+```cpp
+std::vector<creo::Feature> all = creo::CollectFeatures(solid);
+
+std::vector<creo::Feature> only_features = creo::CollectFeatures(
+    solid, [](const creo::Feature &feature) {
+      if (feature.Type() != creo::ObjectType::PRO_FEATURE) {
+        return static_cast<creo::ErrorCode>(-7); // PRO_TK_CONTINUE: skip
+      }
+      return static_cast<creo::ErrorCode>(0);
+    });
+
+if (std::optional<creo::Feature> found =
+        creo::FindFeatureByName(solid, L"EXTRUDE_1")) {
+  // found->Id(), found->Owner(), ...
+}
+```
+
+`CollectFeatures()` returns a plain `std::vector<Feature>` rather than a
+`ProArray`-backed `Array<Feature>`: since `VisitFeatures()` already owns
+the visit itself (including exception safety), there is no `ProArray` to
+allocate/free by hand on this side, unlike PTC's own C utility. An empty
+model (PTC's `PRO_TK_E_NOT_FOUND`) simply becomes an empty vector, not an
+error.
+
+`FindFeatureByName()` compares each visited feature's `GetName()`
+(`ProModelitemNameGet`) against the given name, and stops the visit as
+soon as one matches — via `PRO_TK_USER_ABORT` (-3), PTC's own established
+code for exactly this "found what I was looking for, stop looking"
+situation (confirmed by `ProUtilFindFeatureByName`'s own use of it) —
+rather than needlessly checking every remaining feature's name once the
+answer is already known.
+
 ### Array&lt;T&gt;
 
 `creo::Array<T>` (`include/creo/Array.hpp`) wraps `ProArray`
