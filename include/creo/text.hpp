@@ -1,94 +1,25 @@
 #pragma once
 #include "creo/detail/protoolkit_compat.hpp"
 
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
+// PropertyUtils (a standalone Win32 utility, no creo:: namespace, no
+// other dependency on this wrapper) is the single implementation of
+// UTF-8 <-> wide string conversion used here: FixedWString's UTF-8
+// interop below calls PropertyUtils::stringToWideString/
+// wideStringToString directly rather than keeping a second,
+// near-identical conversion of its own. This makes creo_wrapper depend
+// on PropertyUtils (one-directional -- PropertyUtils itself still has
+// no dependency on creo_wrapper), and it means malformed UTF-8 now
+// throws (PropertyUtils' contract: MB_ERR_INVALID_CHARS/
+// WC_ERR_INVALID_CHARS) instead of substituting U+FFFD.
+#include "../../windows/PropertyUtils.hpp"
 
 #include <cstddef>
 #include <filesystem>
-#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
 namespace creo {
-
-namespace detail {
-
-// UTF-8 <-> wide string conversion, via the native Win32 API.
-//
-// ProTOOLKIT manipulates text as wchar_t. This wrapper targets Windows
-// (wchar_t is 2 bytes, UTF-16, matching Creo itself): rather than
-// hand-rolling UTF-8/UTF-16 codecs, ToUtf8()/FromUtf8() delegate directly
-// to WideCharToMultiByte()/MultiByteToWideChar(), the platform's own
-// conversion, keeping exactly one implementation of "what UTF-16 means"
-// (the OS's) instead of a second one to keep in sync by hand.
-//
-// Both directions call the API without MB_ERR_INVALID_CHARS/
-// WC_ERR_INVALID_CHARS: the text handled here may come from an external
-// model file, so there is no reason to trust it by default, and this
-// wrapper's contract is to substitute rather than throw on malformed
-// input. Since Windows Vista, CP_UTF8 conversions without that flag
-// substitute U+FFFD for invalid/unrepresentable sequences instead of
-// failing outright — the behavior this wrapper wants, provided natively
-// instead of reimplemented.
-
-// Encodes a wide string (as returned by a ProTOOLKIT ProName/ProLine/
-// ProPath buffer) to UTF-8.
-inline std::string ToUtf8(std::wstring_view text) {
-  if (text.empty()) {
-    return {};
-  }
-  if (text.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
-    throw std::length_error("text too long to convert to UTF-8");
-  }
-  const int wide_len = static_cast<int>(text.size());
-
-  const int required = WideCharToMultiByte(CP_UTF8, 0, text.data(), wide_len,
-                                            nullptr, 0, nullptr, nullptr);
-  if (required <= 0) {
-    throw std::runtime_error("WideCharToMultiByte failed");
-  }
-
-  std::string out(static_cast<std::size_t>(required), '\0');
-  if (WideCharToMultiByte(CP_UTF8, 0, text.data(), wide_len, out.data(),
-                          required, nullptr, nullptr) != required) {
-    throw std::runtime_error("WideCharToMultiByte failed (second pass)");
-  }
-  return out;
-}
-
-// Decodes a UTF-8 string to a wide string, to build a ProTOOLKIT buffer
-// (ProName/ProLine/ProPath) from a std::string.
-inline std::wstring FromUtf8(std::string_view text) {
-  if (text.empty()) {
-    return {};
-  }
-  if (text.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
-    throw std::length_error("text too long to convert from UTF-8");
-  }
-  const int narrow_len = static_cast<int>(text.size());
-
-  const int required =
-      MultiByteToWideChar(CP_UTF8, 0, text.data(), narrow_len, nullptr, 0);
-  if (required <= 0) {
-    throw std::runtime_error("MultiByteToWideChar failed");
-  }
-
-  std::wstring out(static_cast<std::size_t>(required), L'\0');
-  if (MultiByteToWideChar(CP_UTF8, 0, text.data(), narrow_len, out.data(),
-                          required) != required) {
-    throw std::runtime_error("MultiByteToWideChar failed (second pass)");
-  }
-  return out;
-}
-
-} // namespace detail
 
 // ---------------------------------------------------------------------------
 // FixedWString<N>
@@ -125,7 +56,7 @@ public:
   // "gear_01"). Convenient to avoid writing wide literals (L"...")
   // everywhere on the caller side.
   explicit FixedWString(std::string_view utf8_text)
-      : FixedWString(detail::FromUtf8(utf8_text)) {}
+      : FixedWString(PropertyUtils::stringToWideString(std::string(utf8_text))) {}
 
   void Assign(std::wstring_view text) {
     if (text.size() > kMaxLength) {
@@ -142,7 +73,7 @@ public:
 
   // Equivalent of Assign() for a UTF-8 string.
   void Assign(std::string_view utf8_text) {
-    Assign(detail::FromUtf8(utf8_text));
+    Assign(PropertyUtils::stringToWideString(std::string(utf8_text)));
   }
 
   // Effective length of the string (excluding the terminator), useful
@@ -171,11 +102,16 @@ public:
   // ProTOOLKIT call like CREO_CHECK(ProMdlMdlnameGet(model, name.Raw()));
   std::wstring ToWString() const { return std::wstring(View()); }
 
-  // Retrieves the buffer content converted to UTF-8 (via the native
-  // Win32 API, see detail::ToUtf8 above) — a stable std::string
-  // representation for logging, comparisons, or any API that does not
-  // want to deal with wide strings.
-  std::string ToString() const { return detail::ToUtf8(View()); }
+  // Retrieves the buffer content converted to UTF-8 via PropertyUtils
+  // (windows/PropertyUtils.hpp) — a stable std::string representation
+  // for logging, comparisons, or any API that does not want to deal
+  // with wide strings. Throws if the buffer's content is not valid
+  // UTF-16 (PropertyUtils' contract; see the note at the top of this
+  // file) -- normally unreachable since the buffer only ever holds
+  // what ProTOOLKIT itself wrote into it.
+  std::string ToString() const {
+    return PropertyUtils::wideStringToString(std::wstring(View()));
+  }
 
   // Raw buffer access, to pass directly to ProTOOLKIT C functions, e.g.
   // ProMdlMdlnameGet(model, name.Raw());

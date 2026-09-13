@@ -24,19 +24,20 @@ added over time.
 ### Important prerequisites
 
 **Platform: Windows only.** The final target for this project is
-Windows, full stop — `creo::detail::ToUtf8`/`FromUtf8`
-(`include/creo/text.hpp`) call the native Win32 API
+Windows, full stop — `include/creo/text.hpp` calls
+`PropertyUtils::stringToWideString`/`wideStringToString`
+(`windows/PropertyUtils.hpp`, see "PropertyUtils" below) for its UTF-8
+conversions, which themselves call the native Win32 API
 (`WideCharToMultiByte`/`MultiByteToWideChar`) directly, with no portable
-fallback, and `text.hpp` (therefore nearly every other header) pulls
-this in transitively; `windows/PropertyUtils.hpp` (see "PropertyUtils"
-below) is Windows-only for the same reason plus its own use of
-`GetEnvironmentVariableW`. `CMakeLists.txt` fails the configure step
-with a clear message if `WIN32` is not set. Build natively on Windows,
-or cross-compile with a MinGW-w64 toolchain
-(`-DCMAKE_TOOLCHAIN_FILE=...`, `CMAKE_SYSTEM_NAME=Windows`) — the latter
-is how this wrapper is compiled and warning-checked in environments
-without a Windows machine (still no way to *run* the resulting
-`.exe`/tests there without Windows or Wine, only to compile them).
+fallback; `text.hpp` (therefore nearly every other header) pulls this in
+transitively, so `creo_wrapper` now depends on `PropertyUtils`.
+`CMakeLists.txt` fails the configure step with a clear message if
+`WIN32` is not set. Build natively on Windows, or cross-compile with a
+MinGW-w64 toolchain (`-DCMAKE_TOOLCHAIN_FILE=...`,
+`CMAKE_SYSTEM_NAME=Windows`) — the latter is how this wrapper is
+compiled and warning-checked in environments without a Windows machine
+(still no way to *run* the resulting `.exe`/tests there without Windows
+or Wine, only to compile them).
 
 The ProTOOLKIT SDK is **proprietary** (shipped by PTC with Creo) and is
 not included in this repository. To build against the real Creo API, you
@@ -55,7 +56,8 @@ executable built in this mode obviously cannot drive a real Creo session.
 include/creo/
   types.hpp                       Umbrella header: includes the five below
   text.hpp                        FixedWString/FixedCharString + all text
-                                   aliases + ToUtf8/FromUtf8 (Win32 API)
+                                   aliases; UTF-8 conversions call
+                                   PropertyUtils (windows/, see below)
   constants.hpp                   MaxAssemLevel, ValueUnused, ValueDefault
   object_type.hpp                 ObjectType, MdlType, Boolean
   model_handle.hpp                ModelHandle
@@ -172,17 +174,17 @@ std::string  s = l1.ToString();      // UTF-8
 
 UTF-8 is used as the `std::string` representation for logging,
 comparisons, and any API that does not want to deal with wide strings.
-The conversion (`creo::detail::ToUtf8`/`FromUtf8`, `include/creo/text.hpp`) delegates directly to
-the native Win32 API (`WideCharToMultiByte`/`MultiByteToWideChar`,
-`CP_UTF8`) rather than a hand-rolled codec: one implementation of "what
-UTF-16 means" (the OS's) instead of a second one to keep in sync by
-hand. Neither direction sets `WC_ERR_INVALID_CHARS`/
-`MB_ERR_INVALID_CHARS`: since Windows Vista, `CP_UTF8` conversions
-without that flag substitute the `U+FFFD` replacement character for
-invalid/unrepresentable sequences instead of failing outright — useful
-since this text may come from an external model file, and matches this
-wrapper's "never throw on malformed input" contract for these two
-functions specifically.
+The conversion itself is not reimplemented here: `ToString()`/the
+`std::string_view` constructor and `Assign()` overload call
+`PropertyUtils::wideStringToString`/`stringToWideString`
+(`windows/PropertyUtils.hpp`, see "PropertyUtils" below) directly, which
+in turn call the native Win32 API (`WideCharToMultiByte`/
+`MultiByteToWideChar`, `CP_UTF8`) with `WC_ERR_INVALID_CHARS`/
+`MB_ERR_INVALID_CHARS` set. Concretely, this means malformed UTF-8
+passed to a `FixedWString` constructor/`Assign()`, or a buffer whose
+content is not valid UTF-16 when `ToString()` is called, **throws**
+(`std::invalid_argument`/`std::runtime_error`) rather than silently
+substituting a replacement character.
 
 Every text type exposes `kCapacity` (the buffer's total size, including
 the terminator) and `kMaxLength = kCapacity - 1` (the number of
@@ -655,14 +657,18 @@ and interoperability" and "Boolean".
 
 ### PropertyUtils (`windows/PropertyUtils.hpp`)
 
-A standalone, header-only Win32 utility class — no `creo::` namespace,
-no dependency on `creo_wrapper`, and not depended on by it either: it
-exists alongside the ProTOOLKIT wrapper for applications that consume it
-(e.g. locating a Creo installation via environment variables), not as
-part of the wrapper itself. Like `creo_wrapper`, it is Windows-only, but
-for its own separate reason: it reads environment variables via
-`GetEnvironmentVariableW`. The CMake target (`property_utils`, an
-`INTERFACE` library) is only defined when `WIN32` is set.
+A standalone, header-only Win32 utility class — no `creo::` namespace —
+that exists alongside the ProTOOLKIT wrapper for applications that
+consume it (e.g. locating a Creo installation via environment
+variables), not as part of the wrapper itself: `PropertyUtils` has no
+dependency on `creo_wrapper`. The reverse is no longer true, though —
+`creo_wrapper`'s `text.hpp` calls into `PropertyUtils` for its own UTF-8
+conversions (see "std::string / std::wstring conversions" above), so
+the dependency now runs one way: `creo_wrapper` -> `PropertyUtils`. Like
+`creo_wrapper`, it is Windows-only, but for its own separate reason too:
+it reads environment variables via `GetEnvironmentVariableW`. The CMake
+target (`property_utils`, an `INTERFACE` library) is only defined when
+`WIN32` is set.
 
 ```cpp
 std::wstring wide = PropertyUtils::stringToWideString("some UTF-8 text");
@@ -673,16 +679,13 @@ std::filesystem::path binDir =
     PropertyUtils::environmentPath(L"CREO_TOOLKIT_ROOT");
 ```
 
-Like `creo::detail::ToUtf8`/`FromUtf8`, the UTF-8/wide conversions go
-through the native Win32 API (`MultiByteToWideChar`/
-`WideCharToMultiByte`, `CP_UTF8`) — but unlike them, `PropertyUtils` sets
-`MB_ERR_INVALID_CHARS`/`WC_ERR_INVALID_CHARS` and throws on malformed
-input rather than substituting `U+FFFD`: a malformed environment
-variable name or value is a configuration error worth surfacing loudly,
-whereas `creo::detail`'s conversions may see arbitrary text coming from
-a Creo model file, where substitution is the more useful behavior. The
-two are intentionally separate implementations for this reason, not a
-shared one.
+The UTF-8/wide conversions go through the native Win32 API
+(`MultiByteToWideChar`/`WideCharToMultiByte`, `CP_UTF8`) with
+`MB_ERR_INVALID_CHARS`/`WC_ERR_INVALID_CHARS` set, so malformed input
+throws rather than being silently patched up with `U+FFFD` — this is
+now also `text.hpp`'s own behavior on malformed UTF-8, since it calls
+these same functions directly rather than keeping a separate,
+near-identical conversion of its own.
 
 `environmentStr()`/`environmentPath()` distinguish a genuinely missing
 variable (`GetLastError() == ERROR_ENVVAR_NOT_FOUND`) from any other

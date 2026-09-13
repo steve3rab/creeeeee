@@ -1,72 +1,14 @@
 #pragma once
 #include "protoolkit_compat.hpp"
-
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
+#include "PropertyUtils.hpp"
 
 #include <cstddef>
 #include <filesystem>
-#include <limits>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 
 namespace creo {
-
-namespace detail {
-
-inline std::string ToUtf8(std::wstring_view text) {
-  if (text.empty()) {
-    return {};
-  }
-  if (text.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
-    throw std::length_error("text too long to convert to UTF-8");
-  }
-  const int wide_len = static_cast<int>(text.size());
-
-  const int required = WideCharToMultiByte(CP_UTF8, 0, text.data(), wide_len,
-                                            nullptr, 0, nullptr, nullptr);
-  if (required <= 0) {
-    throw std::runtime_error("WideCharToMultiByte failed");
-  }
-
-  std::string out(static_cast<std::size_t>(required), '\0');
-  if (WideCharToMultiByte(CP_UTF8, 0, text.data(), wide_len, out.data(),
-                          required, nullptr, nullptr) != required) {
-    throw std::runtime_error("WideCharToMultiByte failed (second pass)");
-  }
-  return out;
-}
-
-inline std::wstring FromUtf8(std::string_view text) {
-  if (text.empty()) {
-    return {};
-  }
-  if (text.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
-    throw std::length_error("text too long to convert from UTF-8");
-  }
-  const int narrow_len = static_cast<int>(text.size());
-
-  const int required =
-      MultiByteToWideChar(CP_UTF8, 0, text.data(), narrow_len, nullptr, 0);
-  if (required <= 0) {
-    throw std::runtime_error("MultiByteToWideChar failed");
-  }
-
-  std::wstring out(static_cast<std::size_t>(required), L'\0');
-  if (MultiByteToWideChar(CP_UTF8, 0, text.data(), narrow_len, out.data(),
-                          required) != required) {
-    throw std::runtime_error("MultiByteToWideChar failed (second pass)");
-  }
-  return out;
-}
-
-}
 
 template <std::size_t N> class FixedWString {
 public:
@@ -80,7 +22,7 @@ public:
   explicit FixedWString(std::wstring_view text) { Assign(text); }
 
   explicit FixedWString(std::string_view utf8_text)
-      : FixedWString(detail::FromUtf8(utf8_text)) {}
+      : FixedWString(PropertyUtils::stringToWideString(std::string(utf8_text))) {}
 
   void Assign(std::wstring_view text) {
     if (text.size() > kMaxLength) {
@@ -96,7 +38,7 @@ public:
   }
 
   void Assign(std::string_view utf8_text) {
-    Assign(detail::FromUtf8(utf8_text));
+    Assign(PropertyUtils::stringToWideString(std::string(utf8_text)));
   }
 
   std::size_t Length() const noexcept {
@@ -112,7 +54,9 @@ public:
 
   std::wstring ToWString() const { return std::wstring(View()); }
 
-  std::string ToString() const { return detail::ToUtf8(View()); }
+  std::string ToString() const {
+    return PropertyUtils::wideStringToString(std::wstring(View()));
+  }
 
   wchar_t *Raw() noexcept { return buffer_; }
   const wchar_t *Raw() const noexcept { return buffer_; }

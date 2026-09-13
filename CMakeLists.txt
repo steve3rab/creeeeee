@@ -6,8 +6,9 @@
 # needed): see cmake/FindProToolkit.cmake and the README for details.
 #
 # Requires Windows (natively or cross-compiled with MinGW-w64): the
-# final target for this project is Windows only. creo::detail::ToUtf8/
-# FromUtf8 (include/creo/text.hpp) call the native Win32 API
+# final target for this project is Windows only. include/creo/text.hpp
+# calls PropertyUtils (windows/PropertyUtils.hpp) for its UTF-8
+# conversions, which itself calls the native Win32 API
 # (WideCharToMultiByte/MultiByteToWideChar) directly, with no portable
 # fallback, so this is no longer a "shim mode covers every OS" situation
 # like the ProTOOLKIT SDK check below.
@@ -17,8 +18,9 @@ project(creo_wrapper LANGUAGES CXX)
 
 if(NOT WIN32)
   message(FATAL_ERROR
-    "This wrapper requires Windows: creo::detail::ToUtf8/FromUtf8 "
-    "(include/creo/text.hpp) call the native Win32 API "
+    "This wrapper requires Windows: include/creo/text.hpp calls "
+    "PropertyUtils (windows/PropertyUtils.hpp) for its UTF-8 "
+    "conversions, which itself calls the native Win32 API "
     "(WideCharToMultiByte/MultiByteToWideChar) directly, with no portable "
     "fallback. Build on Windows, or cross-compile with a MinGW-w64 "
     "toolchain (CMAKE_TOOLCHAIN_FILE / CMAKE_SYSTEM_NAME=Windows).")

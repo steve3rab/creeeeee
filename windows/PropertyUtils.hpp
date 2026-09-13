@@ -26,12 +26,11 @@ class PropertyUtils final {
 
   private:
     // UTF-8 <-> wide (UTF-16) conversions via the native Win32 API,
-    // like creo::detail::ToUtf8/FromUtf8 (creo/text.hpp) -- but
-    // unlike them, these set MB_ERR_INVALID_CHARS/WC_ERR_INVALID_CHARS
-    // and throw on malformed input instead of substituting U+FFFD: a
-    // malformed environment variable name or value is a configuration
-    // error worth surfacing loudly, not silently patching up. The two
-    // are independent implementations for this reason, not shared.
+    // with MB_ERR_INVALID_CHARS/WC_ERR_INVALID_CHARS set: malformed
+    // input throws rather than substituting U+FFFD. creo::text.hpp
+    // (creo/text.hpp) calls these functions directly for its own
+    // UTF-8 interop rather than keeping a separate implementation, so
+    // this is also creo_wrapper's own behavior on malformed input now.
     static std::wstring utf8ToWide(const char* text);
     static std::string wideToUtf8(const std::wstring& text);
 };
