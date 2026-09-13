@@ -5,6 +5,7 @@
 #include "ProtoolkitCompat.hpp"
 #include "Text.hpp"
 
+#include <optional>
 #include <stdexcept>
 
 namespace creo {
@@ -14,24 +15,48 @@ public:
   ModelHandle() noexcept : handle_(nullptr) {}
   explicit ModelHandle(detail::RawMdl handle) noexcept : handle_(handle) {}
 
-  static ModelHandle GetCurrent() {
+  static std::optional<ModelHandle> TryGetCurrent() {
     detail::RawMdl raw_mdl = nullptr;
-    CREO_CHECK(detail::MdlCurrentGet(&raw_mdl));
+    detail::ProErrorCode err = detail::MdlCurrentGet(&raw_mdl);
+    if (err == static_cast<ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+      return std::nullopt;
+    }
+    CREO_CHECK(err);
     if (raw_mdl == nullptr) {
+      return std::nullopt;
+    }
+    return ModelHandle(raw_mdl);
+  }
+
+  static ModelHandle GetCurrent() {
+    std::optional<ModelHandle> model = TryGetCurrent();
+    if (!model.has_value()) {
       throw ProToolkitError(static_cast<ErrorCode>(-4), // PRO_TK_E_NOT_FOUND
                              "ProMdlCurrentGet (no current model)");
+    }
+    return *model;
+  }
+
+  static std::optional<ModelHandle> TryGetActive() {
+    detail::RawMdl raw_mdl = nullptr;
+    detail::ProErrorCode err = detail::MdlActiveGet(&raw_mdl);
+    if (err == static_cast<ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+      return std::nullopt;
+    }
+    CREO_CHECK(err);
+    if (raw_mdl == nullptr) {
+      return std::nullopt;
     }
     return ModelHandle(raw_mdl);
   }
 
   static ModelHandle GetActive() {
-    detail::RawMdl raw_mdl = nullptr;
-    CREO_CHECK(detail::MdlActiveGet(&raw_mdl));
-    if (raw_mdl == nullptr) {
+    std::optional<ModelHandle> model = TryGetActive();
+    if (!model.has_value()) {
       throw ProToolkitError(static_cast<ErrorCode>(-4), // PRO_TK_E_NOT_FOUND
                              "ProMdlActiveGet (no active model)");
     }
-    return ModelHandle(raw_mdl);
+    return *model;
   }
 
   static Array<ModelHandle> List(MdlType type) {

@@ -5,6 +5,7 @@
 #include "creo/ObjectType.hpp"
 #include "creo/Text.hpp"
 
+#include <optional>
 #include <stdexcept>
 
 namespace creo {
@@ -34,25 +35,44 @@ public:
   // of this method if you need it, the way userMdlCurrentGet-style
   // helpers commonly do in ProTOOLKIT applications.
   //
-  // Defensive null check: confirmed by testing against this wrapper's
-  // own real-SDK-mode test stand-in for ProMdlCurrentGet, some ProTOOLKIT
-  // "current X" getters can report success with a null/sentinel result
-  // rather than failing outright when there is no current X. Treated the
-  // same as an outright failure here, as PRO_TK_E_NOT_FOUND (the code
-  // that already means exactly this in the real ProError enum) — not a
-  // fabricated code, just this wrapper's own choice of which existing
-  // code to attach to a case the raw call itself did not flag as an
-  // error. Without this check, the caller would get an invalid
-  // ModelHandle out of GetCurrent() with no exception at all, only
-  // finding out from a confusing failure at the next call that uses it.
-  static ModelHandle GetCurrent() {
+  // "No current model" surfaces from the raw ProMdlCurrentGet call in
+  // two different ways depending on the ProTOOLKIT build/version: some
+  // report success with a null/sentinel result (confirmed by testing
+  // against this wrapper's own real-SDK-mode test stand-in), others
+  // return PRO_TK_E_NOT_FOUND outright as their ProError. TryGetCurrent()
+  // treats both the same way, as "nothing there" (std::nullopt) rather
+  // than an error — PRO_TK_E_NOT_FOUND already means exactly this in the
+  // real ProError enum, so recognizing it here is not a fabricated
+  // interpretation, just handling the code by its own documented
+  // meaning. Any other failure (a real error CREO_CHECK would reject)
+  // still throws. GetCurrent() then re-adds the outright-failure
+  // behavior on top, for callers who consider "no current model"
+  // exceptional rather than a normal case to check for.
+  //
+  // Without this handling, TryGetCurrent()/GetCurrent() would either
+  // throw when a nullopt/false return was wanted, or hand back an
+  // invalid ModelHandle with no signal at all, only surfacing as a
+  // confusing failure at the next call that uses it.
+  static std::optional<ModelHandle> TryGetCurrent() {
     detail::RawMdl raw_mdl = nullptr;
-    CREO_CHECK(detail::MdlCurrentGet(&raw_mdl));
+    detail::ProErrorCode err = detail::MdlCurrentGet(&raw_mdl);
+    if (err == static_cast<ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+      return std::nullopt;
+    }
+    CREO_CHECK(err);
     if (raw_mdl == nullptr) {
+      return std::nullopt;
+    }
+    return ModelHandle(raw_mdl);
+  }
+
+  static ModelHandle GetCurrent() {
+    std::optional<ModelHandle> model = TryGetCurrent();
+    if (!model.has_value()) {
       throw ProToolkitError(static_cast<ErrorCode>(-4), // PRO_TK_E_NOT_FOUND
                              "ProMdlCurrentGet (no current model)");
     }
-    return ModelHandle(raw_mdl);
+    return *model;
   }
 
   // The model currently active in the Creo session (ProMdlActiveGet) --
@@ -61,16 +81,28 @@ public:
   // "active" need not be the same model); this wrapper does not assert a
   // precise definition of the difference PTC intends, only that they are
   // two separate calls PTC exposes, wrapped separately here rather than
-  // conflated into one. Same defensive null check and rationale as
-  // GetCurrent().
-  static ModelHandle GetActive() {
+  // conflated into one. Same "not found" handling and rationale as
+  // TryGetCurrent()/GetCurrent().
+  static std::optional<ModelHandle> TryGetActive() {
     detail::RawMdl raw_mdl = nullptr;
-    CREO_CHECK(detail::MdlActiveGet(&raw_mdl));
+    detail::ProErrorCode err = detail::MdlActiveGet(&raw_mdl);
+    if (err == static_cast<ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+      return std::nullopt;
+    }
+    CREO_CHECK(err);
     if (raw_mdl == nullptr) {
+      return std::nullopt;
+    }
+    return ModelHandle(raw_mdl);
+  }
+
+  static ModelHandle GetActive() {
+    std::optional<ModelHandle> model = TryGetActive();
+    if (!model.has_value()) {
       throw ProToolkitError(static_cast<ErrorCode>(-4), // PRO_TK_E_NOT_FOUND
                              "ProMdlActiveGet (no active model)");
     }
-    return ModelHandle(raw_mdl);
+    return *model;
   }
 
   // All models of a given type currently loaded in the session

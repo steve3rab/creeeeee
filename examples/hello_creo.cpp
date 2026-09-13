@@ -26,8 +26,16 @@
 //     WindowId(), Display(), and the static ModelHandle::List() — each
 //     wrapping its own ProTOOLKIT call (ProMdlActiveGet,
 //     ProMdlExtensionGet, ProMdlDirectoryPathGet, ProMdlWindowGet,
-//     ProMdlDisplay, ProSessionMdlList respectively). Same real-SDK-only
+//     ProMdlDisplay, ProSessionMdlList respectively), plus
+//     TryGetCurrent()/TryGetActive() (the std::optional-returning
+//     alternative to GetCurrent()/GetActive() for callers who do not
+//     consider "nothing current/active" exceptional). Same real-SDK-only
 //     caveat as PrintCurrentModelName().
+//
+//  5) DemonstrateScopeGuard(): creo::Defer()/ScopeGuard, a generic RAII
+//     "run this on scope exit" utility — not specific to any ProTOOLKIT
+//     function, so (like DemonstrateTypes()/DemonstrateArray()) it runs
+//     identically in shim mode and in real-SDK mode.
 //
 // Technical note: this file only uses std::printf/std::puts (never
 // std::wprintf) for output. Mixing "wide" and "narrow" calls on the same
@@ -37,10 +45,12 @@
 
 #include "creo/Array.hpp"
 #include "creo/Error.hpp"
+#include "creo/ScopeGuard.hpp"
 #include "creo/Types.hpp"
 
 #include <cstdio>
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
 
 namespace {
@@ -182,6 +192,33 @@ void DemonstrateArray() {
   }
 }
 
+void DemonstrateScopeGuard() {
+  std::puts("\n--- creo::ScopeGuard / Defer (generic RAII cleanup) ---");
+
+  // Runs on normal scope exit.
+  {
+    auto guard = creo::Defer([] { std::puts("  cleanup #1 ran (normal exit)"); });
+  }
+
+  // Also runs when the scope exits via an exception -- exactly the case
+  // hand-written try/catch-and-restore code around a ProTOOLKIT
+  // begin/end pair is prone to getting wrong on an early-return path.
+  try {
+    auto guard = creo::Defer([] { std::puts("  cleanup #2 ran (via exception)"); });
+    throw std::runtime_error("simulated failure mid-scope");
+  } catch (const std::runtime_error &e) {
+    std::printf("  caught: %s\n", e.what());
+  }
+
+  // Dismiss(): cancel the pending call once it turns out to be
+  // unnecessary (e.g. the risky step it was guarding committed OK).
+  {
+    auto guard = creo::Defer([] { std::puts("  cleanup #3 (should NOT print)"); });
+    guard.Dismiss();
+  }
+  std::puts("  Dismiss()'d guard produced no output, as expected");
+}
+
 #if CREO_WRAPPER_HAS_REAL_SDK
 // Retrieves the name of the model currently active in the Creo session.
 // Returns false (and prints why) if no model is active or if a
@@ -217,6 +254,18 @@ bool PrintCurrentModelName() {
 // piece of session state (e.g. no active model) does not prevent seeing
 // the others succeed or fail on their own terms.
 void PrintSessionModelInfo() {
+  // TryGetCurrent()/TryGetActive(): the std::optional-returning
+  // alternative to GetCurrent()/GetActive(), for callers who treat "no
+  // current/active model" as a normal case to check for rather than an
+  // exceptional one -- no try/catch needed here.
+  if (std::optional<creo::ModelHandle> current =
+          creo::ModelHandle::TryGetCurrent()) {
+    std::printf("TryGetCurrent() -> a model is current: %s\n",
+                current->Name().ToString().c_str());
+  } else {
+    std::puts("TryGetCurrent() -> std::nullopt (no current model)");
+  }
+
   try {
     creo::ModelHandle active = creo::ModelHandle::GetActive();
     std::printf("Active model (ProMdlActiveGet): %s\n",
@@ -254,6 +303,7 @@ int main() {
   try {
     DemonstrateTypes();
     DemonstrateArray();
+    DemonstrateScopeGuard();
 
     std::puts("\n--- Creo session: active model name ---");
 #if CREO_WRAPPER_HAS_REAL_SDK

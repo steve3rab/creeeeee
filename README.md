@@ -64,6 +64,8 @@ include/creo/
   ModelItem.hpp                    ModelItem, Feature, and the rest of the aliases
   Array.hpp                        Array<T>: RAII around ProArray
   Error.hpp                        ProToolkitError + CREO_CHECK macro
+  ScopeGuard.hpp                   Generic RAII "run on scope exit"
+                                    (not ProTOOLKIT-specific)
   detail/ProtoolkitCompat.hpp      Real SDK / shim switch
   detail/ProtoolkitShim.hpp        Substitute types (no SDK)
 src/
@@ -78,7 +80,7 @@ srcAcopier/
   ObjectType.hpp,                  ProTOOLKIT project (SDK + license
   ModelHandle.hpp,                 available): CREO_WRAPPER_HAS_REAL_SDK
   ModelItem.hpp, Array.hpp,        is hardcoded to 1 there (no shim
-  Error.hpp,                       mode, the real SDK is required to
+  Error.hpp, ScopeGuard.hpp,       mode, the real SDK is required to
   ProtoolkitCompat.hpp,            build). Same file split as
   Error.cpp                        include/creo/ above.
   PropertyUtils.hpp                Flat copy of windows/PropertyUtils.hpp
@@ -322,13 +324,35 @@ current window's model, nor substitute an active sub-solid for an
 assembly — those are application-level policies (commonly seen in
 `userMdlCurrentGet`-style helpers across ProTOOLKIT codebases), not
 something this library should decide on your behalf. Build that fallback
-in your own code on top of this method if you need it. It also
-defensively checks for a null result even after a "successful" call
-(confirmed necessary while testing this method: some ProTOOLKIT "current
-X" getters can report success with a null/sentinel result rather than
-failing outright when there is no current X) — treated as
-`PRO_TK_E_NOT_FOUND`, thrown as a `ProToolkitError` just like any other
-failure here.
+in your own code on top of this method if you need it.
+
+"No current model" surfaces in two different ways depending on the
+ProTOOLKIT build/version: some report success with a null/sentinel
+result (confirmed by testing), others return `PRO_TK_E_NOT_FOUND`
+outright as their `ProError`. `GetCurrent()` treats both the same way —
+as a failure, thrown as a `ProToolkitError` with code
+`PRO_TK_E_NOT_FOUND` (the code that already means exactly this in the
+real `ProError` enum, not a fabricated one).
+
+For callers who consider "no current model" a normal case to check for
+rather than an exceptional one, `TryGetCurrent()` returns
+`std::optional<ModelHandle>` instead — `std::nullopt` for either "no
+current model" signal above, no `try`/`catch` needed:
+
+```cpp
+if (std::optional<creo::ModelHandle> model = creo::ModelHandle::TryGetCurrent()) {
+  // a model is current
+} else {
+  // std::nullopt: no current model
+}
+```
+
+`GetCurrent()` is implemented directly in terms of `TryGetCurrent()`
+(and `GetActive()` in terms of `TryGetActive()`, below): a genuine
+failure from the underlying call — anything `CREO_CHECK` itself would
+reject — still throws in both `TryGetCurrent()` and `GetCurrent()`; only
+"call succeeded (or failed specifically with `PRO_TK_E_NOT_FOUND`) and
+there is nothing current" is soft in the `Try` variant.
 
 Beyond `IsValid()`/`Raw()`/`GetCurrent()`, `ModelHandle` exposes
 convenience methods for the two most common cases once you have a
@@ -386,9 +410,11 @@ from `GetCurrent()`/`ProMdlCurrentGet` above — across multiple windows,
 "current" and "active" need not be the same model. This wrapper does not
 assert a precise definition of the difference PTC intends, only that they
 are two separate calls PTC exposes, wrapped separately here rather than
-conflated into one. `Extension()`, `DirectoryPath()`, `Display()` and
-`WindowId()` follow the same invalid-handle guard (`std::logic_error` on a
-null handle) and `ProToolkitError` conventions as `Name()`/`Type()` above.
+conflated into one. `TryGetActive()` is `GetActive()`'s
+`std::optional`-returning counterpart, same as `TryGetCurrent()` above.
+`Extension()`, `DirectoryPath()`, `Display()` and `WindowId()` follow the
+same invalid-handle guard (`std::logic_error` on a null handle) and
+`ProToolkitError` conventions as `Name()`/`Type()` above.
 
 `List()` wraps `ProSessionMdlList`, which PTC documents as allocating a
 `ProArray` that the caller must free with `ProArrayFree()` — exactly the
@@ -571,6 +597,36 @@ rather than being plain substitute types: unlike `ProMdl`/`ProError`,
 installed. The shim also reproduces
 `ProArraySizeSet`/`ProArrayObjectAdd`/`ProArrayObjectRemove` for fidelity
 to `ProArray.h`, even though `Array<T>` no longer uses them (see above).
+
+### ScopeGuard / Defer
+
+Not a ProTOOLKIT wrapper at all: a generic RAII utility filling a gap
+that shows up constantly *while* wrapping ProTOOLKIT. The C API has many
+begin/end and set/restore pairs (suspend regeneration then resume it,
+disable display then re-enable it, `ProUtilXxx` setup/teardown calls,
+...) with no destructor to hook the restore step to — every caller ends
+up hand-writing the same try/catch-and-restore boilerplate, and it is
+easy to forget on one of several early-return paths.
+
+```cpp
+detail::MdlRegenModeSet(model.Raw(), kRegenModeManual);
+auto restore_regen_mode = creo::Defer([&] {
+  detail::MdlRegenModeSet(model.Raw(), previous_mode);
+});
+
+// ... code that may return early or throw ...
+// previous_mode is restored no matter which path is taken.
+```
+
+`creo::Defer(callable)` returns a move-only `creo::ScopeGuard<F>` that
+invokes `callable` when it is destroyed — on normal scope exit, an early
+`return`, or stack unwinding from an exception — unless `Dismiss()` was
+called first (for when the guarded step turns out not to need undoing,
+e.g. it committed successfully). Like any destructor, `~ScopeGuard()` is
+implicitly `noexcept`: a throwing callable calls `std::terminate()`
+rather than letting the exception escape, the same rule the standard
+library itself follows for deleters, comparators, hash functors, and so
+on — write cleanup code that does not throw.
 
 ### ObjectType
 
