@@ -25,7 +25,7 @@ added over time.
 
 **Platform: Windows only.** The final target for this project is
 Windows, full stop — `creo::detail::ToUtf8`/`FromUtf8`
-(`include/creo/detail/utf8.hpp`) call the native Win32 API
+(`include/creo/text.hpp`) call the native Win32 API
 (`WideCharToMultiByte`/`MultiByteToWideChar`) directly, with no portable
 fallback, and `text.hpp` (therefore nearly every other header) pulls
 this in transitively; `windows/PropertyUtils.hpp` (see "PropertyUtils"
@@ -54,7 +54,8 @@ executable built in this mode obviously cannot drive a real Creo session.
 ```
 include/creo/
   types.hpp                       Umbrella header: includes the five below
-  text.hpp                        FixedWString/FixedCharString + all text aliases
+  text.hpp                        FixedWString/FixedCharString + all text
+                                   aliases + ToUtf8/FromUtf8 (Win32 API)
   constants.hpp                   MaxAssemLevel, ValueUnused, ValueDefault
   object_type.hpp                 ObjectType, MdlType, Boolean
   model_handle.hpp                ModelHandle
@@ -63,7 +64,6 @@ include/creo/
   error.hpp                       ProToolkitError + CREO_CHECK macro
   detail/protoolkit_compat.hpp    Real SDK / shim switch
   detail/protoolkit_shim.hpp      Substitute types (no SDK)
-  detail/utf8.hpp                 ToUtf8/FromUtf8 (Win32 API, CP_UTF8)
 src/
   error.cpp
 examples/
@@ -78,7 +78,7 @@ srcAcopier/
   model_item.hpp, array.hpp,      is hardcoded to 1 there (no shim
   error.hpp,                      mode, the real SDK is required to
   protoolkit_compat.hpp,          build). Same file split as
-  utf8.hpp, error.cpp             include/creo/ above.
+  error.cpp                       include/creo/ above.
   PropertyUtils.hpp               Flat copy of windows/PropertyUtils.hpp
                                    (same content, no comments) for
                                    dropping alongside the rest of this
@@ -172,7 +172,7 @@ std::string  s = l1.ToString();      // UTF-8
 
 UTF-8 is used as the `std::string` representation for logging,
 comparisons, and any API that does not want to deal with wide strings.
-The conversion (`include/creo/detail/utf8.hpp`) delegates directly to
+The conversion (`creo::detail::ToUtf8`/`FromUtf8`, `include/creo/text.hpp`) delegates directly to
 the native Win32 API (`WideCharToMultiByte`/`MultiByteToWideChar`,
 `CP_UTF8`) rather than a hand-rolled codec: one implementation of "what
 UTF-16 means" (the OS's) instead of a second one to keep in sync by

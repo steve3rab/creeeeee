@@ -26,7 +26,7 @@ class PropertyUtils final {
 
   private:
     // UTF-8 <-> wide (UTF-16) conversions via the native Win32 API,
-    // like creo::detail::ToUtf8/FromUtf8 (creo/detail/utf8.hpp) -- but
+    // like creo::detail::ToUtf8/FromUtf8 (creo/text.hpp) -- but
     // unlike them, these set MB_ERR_INVALID_CHARS/WC_ERR_INVALID_CHARS
     // and throw on malformed input instead of substituting U+FFFD: a
     // malformed environment variable name or value is a configuration
