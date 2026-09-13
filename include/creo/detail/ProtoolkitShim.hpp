@@ -694,6 +694,94 @@ inline ProError ProFeatureRegenerate(ProMdl solid, ProFeature *feature) {
   return PRO_TK_NOT_IMPLEMENTED;
 }
 
+// Reproduces the signature of ProModelitemMdlGet (ProModelitem.h,
+// confirmed alongside ProModelitemNameGet), for
+// creo::ModelItem::GetOwnerMdl() to compile in shim mode.
+inline ProError ProModelitemMdlGet(ProModelitem *p_handle, ProMdl *p_model) {
+  if (p_handle == nullptr || p_model == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// Reproduces the signatures of the explosion-state functions confirmed
+// from a real ProTOOLKIT sample (pasted verbatim by the user), for
+// creo::ModelHandle::IsExploded()/Explode()/Unexplode() and
+// creo::GetActiveExpldState()/ActivateExpldState() (ModelItem.hpp) to
+// compile in shim mode.
+inline ProError ProAssemblyIsExploded(ProMdl assembly,
+                                       ProBoolean *is_exploded) {
+  if (assembly == nullptr || is_exploded == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProAssemblyExplode(ProMdl assembly) {
+  if (assembly == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProAssemblyUnexplode(ProMdl assembly) {
+  if (assembly == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProExpldstateActiveGet(ProMdl assembly,
+                                        ProExpldstate *p_expldstate) {
+  if (assembly == nullptr || p_expldstate == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProExpldstateActivate(ProMdl assembly,
+                                       ProExpldstate *expldstate) {
+  if (assembly == nullptr || expldstate == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// Reproduces the signatures of the ProAsmcomp functions confirmed from
+// the same sample, for creo::AsmComp (ModelItem.hpp) to compile in shim
+// mode.
+inline ProError ProAsmcompMdlGet(ProModelitem *asmcomp, ProMdl *p_model) {
+  if (asmcomp == nullptr || p_model == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProAsmcompRegenerate(ProModelitem *asmcomp,
+                                      ProBoolean with_children) {
+  (void)with_children;
+  if (asmcomp == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProAsmcompIsBulkitem(ProModelitem *asmcomp,
+                                      ProBoolean *p_result) {
+  if (asmcomp == nullptr || p_result == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProAsmcompIsUnplaced(ProModelitem *asmcomp,
+                                      ProBoolean *p_result) {
+  if (asmcomp == nullptr || p_result == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+inline ProError ProAsmcompIsSubstitute(ProModelitem *asmcomp,
+                                        ProBoolean *p_result) {
+  if (asmcomp == nullptr || p_result == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
 // -----------------------------------------------------------------------
 // Visit functions (per PTC's "Visit Functions" documentation, pasted
 // verbatim by the user): ProAppData is confirmed there as `typedef

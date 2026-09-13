@@ -394,6 +394,12 @@ void PrintExpldStates() {
   } else {
     std::printf("Visited %d exploded state(s)\n", count);
   }
+
+  // ModelHandle::IsExploded()/Explode()/Unexplode() (ProAssemblyIsExploded/
+  // ProAssemblyExplode/ProAssemblyUnexplode) -- confirmed from the same
+  // real ProTOOLKIT sample as the two functions above.
+  std::printf("IsExploded(): %s\n",
+               active->IsExploded() ? "true" : "false");
 }
 #endif
 

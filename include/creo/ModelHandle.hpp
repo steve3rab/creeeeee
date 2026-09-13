@@ -209,6 +209,45 @@ public:
     return window_id;
   }
 
+  // Whether this assembly is currently exploded (ProAssemblyIsExploded),
+  // Explode()/Unexplode() it (ProAssemblyExplode/ProAssemblyUnexplode) --
+  // confirmed from a real ProTOOLKIT sample (pasted verbatim by the
+  // user: ProTestAsmExplode(), which checks IsExploded() before calling
+  // either one, exactly like these three are meant to be used together).
+  // Same invalid-handle guard and rationale as Name()/Type()/etc. above.
+  // `assembly` is passed as a RawMdl: the sample itself casts a ProMdl*
+  // straight to ProAssembly (`ProAssembly assembly = *(ProAssembly
+  // *)mdl;`), direct evidence of the interchangeability already assumed
+  // elsewhere (e.g. Feature::Regenerate()'s ProSolid/ProMdl caveat).
+  bool IsExploded() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::IsExploded() called on an invalid (null) "
+          "handle");
+    }
+    detail::RawBoolean is_exploded = detail::kBooleanFalse;
+    CREO_CHECK(detail::AssemblyIsExploded(handle_, &is_exploded));
+    return ToBool(is_exploded);
+  }
+
+  void Explode() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Explode() called on an invalid (null) "
+          "handle");
+    }
+    CREO_CHECK(detail::AssemblyExplode(handle_));
+  }
+
+  void Unexplode() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Unexplode() called on an invalid (null) "
+          "handle");
+    }
+    CREO_CHECK(detail::AssemblyUnexplode(handle_));
+  }
+
   // Raw handle, for direct calls to ProTOOLKIT functions not (yet)
   // wrapped by this library.
   detail::RawMdl Raw() const noexcept { return handle_; }

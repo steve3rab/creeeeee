@@ -132,6 +132,35 @@ public:
     return window_id;
   }
 
+  bool IsExploded() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::IsExploded() called on an invalid (null) "
+          "handle");
+    }
+    detail::RawBoolean is_exploded = detail::kBooleanFalse;
+    CREO_CHECK(detail::AssemblyIsExploded(handle_, &is_exploded));
+    return ToBool(is_exploded);
+  }
+
+  void Explode() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Explode() called on an invalid (null) "
+          "handle");
+    }
+    CREO_CHECK(detail::AssemblyExplode(handle_));
+  }
+
+  void Unexplode() const {
+    if (!IsValid()) {
+      throw std::logic_error(
+          "creo::ModelHandle::Unexplode() called on an invalid (null) "
+          "handle");
+    }
+    CREO_CHECK(detail::AssemblyUnexplode(handle_));
+  }
+
   detail::RawMdl Raw() const noexcept { return handle_; }
 
 private:

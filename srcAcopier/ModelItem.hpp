@@ -42,6 +42,13 @@ public:
     return name;
   }
 
+  ModelHandle GetOwnerMdl() const {
+    detail::RawMdl model = nullptr;
+    CREO_CHECK(detail::ModelitemMdlGet(
+        const_cast<detail::RawModelItem *>(&raw_), &model));
+    return ModelHandle(model);
+  }
+
   detail::RawModelItem *Raw() noexcept { return &raw_; }
   const detail::RawModelItem *Raw() const noexcept { return &raw_; }
 
@@ -91,6 +98,45 @@ public:
   void Regenerate(const ModelHandle &solid) const {
     CREO_CHECK(detail::FeatureRegenerate(
         solid.Raw(), const_cast<detail::RawModelItem *>(Raw())));
+  }
+};
+
+class AsmComp : public ModelItem {
+public:
+  using ModelItem::ModelItem;
+
+  ModelHandle GetMdl() const {
+    detail::RawMdl model = nullptr;
+    CREO_CHECK(detail::AsmcompMdlGet(
+        const_cast<detail::RawModelItem *>(Raw()), &model));
+    return ModelHandle(model);
+  }
+
+  void Regenerate(bool with_children) const {
+    CREO_CHECK(detail::AsmcompRegenerate(
+        const_cast<detail::RawModelItem *>(Raw()),
+        ToProBoolean(with_children)));
+  }
+
+  bool IsBulkItem() const {
+    detail::RawBoolean result = detail::kBooleanFalse;
+    CREO_CHECK(detail::AsmcompIsBulkitem(
+        const_cast<detail::RawModelItem *>(Raw()), &result));
+    return ToBool(result);
+  }
+
+  bool IsUnplaced() const {
+    detail::RawBoolean result = detail::kBooleanFalse;
+    CREO_CHECK(detail::AsmcompIsUnplaced(
+        const_cast<detail::RawModelItem *>(Raw()), &result));
+    return ToBool(result);
+  }
+
+  bool IsSubstitute() const {
+    detail::RawBoolean result = detail::kBooleanFalse;
+    CREO_CHECK(detail::AsmcompIsSubstitute(
+        const_cast<detail::RawModelItem *>(Raw()), &result));
+    return ToBool(result);
   }
 };
 
@@ -303,6 +349,26 @@ ErrorCode VisitGeomitems(const Feature &feature, ObjectType item_type,
   return VisitGeomitems(
       feature, item_type, std::forward<ActionFn>(action),
       [](const GeomItem &) { return static_cast<ErrorCode>(0); });
+}
+
+inline ExpldState GetActiveExpldState(const ModelHandle &assembly) {
+  if (!assembly.IsValid()) {
+    throw std::logic_error("creo::GetActiveExpldState() called with an "
+                            "invalid (null) ModelHandle");
+  }
+  detail::RawModelItem raw{};
+  CREO_CHECK(detail::ExpldstateActiveGet(assembly.Raw(), &raw));
+  return ExpldState(raw);
+}
+
+inline void ActivateExpldState(const ModelHandle &assembly,
+                                const ExpldState &state) {
+  if (!assembly.IsValid()) {
+    throw std::logic_error("creo::ActivateExpldState() called with an "
+                            "invalid (null) ModelHandle");
+  }
+  CREO_CHECK(detail::ExpldstateActivate(
+      assembly.Raw(), const_cast<detail::RawModelItem *>(state.Raw())));
 }
 
 inline std::vector<Feature> CollectFeatures(const ModelHandle &solid) {

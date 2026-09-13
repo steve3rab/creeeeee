@@ -39,8 +39,16 @@
 // page: "#include <ProModelitem.h>") as the real declaring header for
 // ProModelitemNameGet -- included explicitly for the same reason as
 // ProSizeConst.h, rather than assuming ProObjects.h pulls it in.
+// ProExpldstate.h and ProAsmcomp.h are confirmed the same way (a real
+// ProTOOLKIT sample's own #include block, pasted verbatim by the user)
+// as declaring, respectively, the explosion-state functions below
+// (ProAssemblyIsExploded/Explode/Unexplode, ProExpldstateActiveGet/
+// Activate) and the ProAsmcomp functions (see creo::AsmComp,
+// ModelItem.hpp).
 #include <ProArray.h>
+#include <ProAsmcomp.h>
 #include <ProAssembly.h>
+#include <ProExpldstate.h>
 #include <ProMdl.h>
 #include <ProModelitem.h>
 #include <ProObjects.h>
@@ -122,6 +130,72 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
 // tell you so.
 inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return ::ProFeatureRegenerate(solid, feature);
+}
+
+// Trampoline to ProModelitemMdlGet (see ModelItem::GetOwnerMdl() in
+// ModelItem.hpp): the officially-documented PTC accessor for a
+// modelitem's owning model, confirmed from a real ProTOOLKIT sample
+// (pasted verbatim by the user) that calls it explicitly
+// (`ProModelitemMdlGet(p_geomitem, &p_model)`) rather than reading the
+// item's `owner` field directly, even though that field is directly
+// readable too (see ModelItem::Owner(), a plain field read) — kept as a
+// separate method rather than a replacement, since nothing confirms the
+// two ever disagree, only that PTC's own sample code prefers the
+// function call.
+inline ProErrorCode ModelitemMdlGet(RawModelItem *item, RawMdl *p_model) {
+  return ::ProModelitemMdlGet(item, p_model);
+}
+
+// Trampolines to ProAssembly.h/ProExpldstate.h explosion-state functions
+// (see ModelHandle::IsExploded()/Explode()/Unexplode() and
+// creo::GetActiveExpldState()/ActivateExpldState() in ModelItem.hpp),
+// confirmed from the same pasted real ProTOOLKIT sample. `assembly` is
+// passed as a RawMdl: the sample itself casts a ProMdl* straight to
+// ProAssembly (`ProAssembly assembly = *(ProAssembly *)mdl;`), stronger
+// direct evidence of the same interchangeability already assumed above
+// for ProSolid/ProFeatureRegenerate.
+inline ProErrorCode AssemblyIsExploded(RawMdl assembly,
+                                        RawBoolean *is_exploded) {
+  return ::ProAssemblyIsExploded(assembly, is_exploded);
+}
+inline ProErrorCode AssemblyExplode(RawMdl assembly) {
+  return ::ProAssemblyExplode(assembly);
+}
+inline ProErrorCode AssemblyUnexplode(RawMdl assembly) {
+  return ::ProAssemblyUnexplode(assembly);
+}
+inline ProErrorCode ExpldstateActiveGet(RawMdl assembly,
+                                         RawModelItem *p_expldstate) {
+  return ::ProExpldstateActiveGet(assembly, p_expldstate);
+}
+inline ProErrorCode ExpldstateActivate(RawMdl assembly,
+                                        RawModelItem *expldstate) {
+  return ::ProExpldstateActivate(assembly, expldstate);
+}
+
+// Trampolines to ProAsmcomp.h functions (see creo::AsmComp in
+// ModelItem.hpp), confirmed from the same pasted sample: `p_asmcomp->
+// owner`/`->id`/`->type` are directly assigned there
+// (ProUtilAsmcompSelect), the same three field names as every other
+// confirmed pro_model_item alias, so ProAsmcomp is treated the same way.
+inline ProErrorCode AsmcompMdlGet(RawModelItem *asmcomp, RawMdl *p_model) {
+  return ::ProAsmcompMdlGet(asmcomp, p_model);
+}
+inline ProErrorCode AsmcompRegenerate(RawModelItem *asmcomp,
+                                       RawBoolean with_children) {
+  return ::ProAsmcompRegenerate(asmcomp, with_children);
+}
+inline ProErrorCode AsmcompIsBulkitem(RawModelItem *asmcomp,
+                                       RawBoolean *p_result) {
+  return ::ProAsmcompIsBulkitem(asmcomp, p_result);
+}
+inline ProErrorCode AsmcompIsUnplaced(RawModelItem *asmcomp,
+                                       RawBoolean *p_result) {
+  return ::ProAsmcompIsUnplaced(asmcomp, p_result);
+}
+inline ProErrorCode AsmcompIsSubstitute(RawModelItem *asmcomp,
+                                         RawBoolean *p_result) {
+  return ::ProAsmcompIsSubstitute(asmcomp, p_result);
 }
 
 // Visit functions (per PTC's "Visit Functions" documentation): ProAppData
@@ -287,6 +361,46 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
 }
 inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return shim::ProFeatureRegenerate(solid, feature);
+}
+inline ProErrorCode ModelitemMdlGet(RawModelItem *item, RawMdl *p_model) {
+  return shim::ProModelitemMdlGet(item, p_model);
+}
+inline ProErrorCode AssemblyIsExploded(RawMdl assembly,
+                                        RawBoolean *is_exploded) {
+  return shim::ProAssemblyIsExploded(assembly, is_exploded);
+}
+inline ProErrorCode AssemblyExplode(RawMdl assembly) {
+  return shim::ProAssemblyExplode(assembly);
+}
+inline ProErrorCode AssemblyUnexplode(RawMdl assembly) {
+  return shim::ProAssemblyUnexplode(assembly);
+}
+inline ProErrorCode ExpldstateActiveGet(RawMdl assembly,
+                                         RawModelItem *p_expldstate) {
+  return shim::ProExpldstateActiveGet(assembly, p_expldstate);
+}
+inline ProErrorCode ExpldstateActivate(RawMdl assembly,
+                                        RawModelItem *expldstate) {
+  return shim::ProExpldstateActivate(assembly, expldstate);
+}
+inline ProErrorCode AsmcompMdlGet(RawModelItem *asmcomp, RawMdl *p_model) {
+  return shim::ProAsmcompMdlGet(asmcomp, p_model);
+}
+inline ProErrorCode AsmcompRegenerate(RawModelItem *asmcomp,
+                                       RawBoolean with_children) {
+  return shim::ProAsmcompRegenerate(asmcomp, with_children);
+}
+inline ProErrorCode AsmcompIsBulkitem(RawModelItem *asmcomp,
+                                       RawBoolean *p_result) {
+  return shim::ProAsmcompIsBulkitem(asmcomp, p_result);
+}
+inline ProErrorCode AsmcompIsUnplaced(RawModelItem *asmcomp,
+                                       RawBoolean *p_result) {
+  return shim::ProAsmcompIsUnplaced(asmcomp, p_result);
+}
+inline ProErrorCode AsmcompIsSubstitute(RawModelItem *asmcomp,
+                                         RawBoolean *p_result) {
+  return shim::ProAsmcompIsSubstitute(asmcomp, p_result);
 }
 using RawAppData = shim::ProAppData;
 using RawFeatureVisitAction = shim::ProFeatureVisitAction;

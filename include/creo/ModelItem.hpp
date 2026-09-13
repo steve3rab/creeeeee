@@ -107,6 +107,23 @@ public:
     return name;
   }
 
+  // The item's owning model (ProModelitemMdlGet), confirmed from a real
+  // ProTOOLKIT sample (pasted verbatim by the user) that calls this
+  // explicitly rather than reading the item's `owner` field directly --
+  // even though `Owner()` above already does exactly that, and nothing
+  // confirms the two ever disagree. Kept as a separate method rather
+  // than changing Owner() itself: Owner() stays a fast, noexcept, always-
+  // succeeding field read (valid on any ModelItem, including one built
+  // by hand with no real session behind it), while GetOwnerMdl() is the
+  // real PTC call PTC's own sample code prefers, for callers who would
+  // rather go through the documented API surface.
+  ModelHandle GetOwnerMdl() const {
+    detail::RawMdl model = nullptr;
+    CREO_CHECK(detail::ModelitemMdlGet(
+        const_cast<detail::RawModelItem *>(&raw_), &model));
+    return ModelHandle(model);
+  }
+
   // Raw struct, for direct calls to ProTOOLKIT functions not (yet)
   // wrapped by this library (most of them take a `ProModelitem*`).
   detail::RawModelItem *Raw() noexcept { return &raw_; }
@@ -166,7 +183,7 @@ using Table = ModelItem;
 // ---------------------------------------------------------------------------
 // Feature
 // ---------------------------------------------------------------------------
-// Unlike the other aliases below, `Feature` is a real derived class, not
+// Unlike the plain aliases above, `Feature` is a real derived class, not
 // a bare `using Feature = ModelItem;`: it has genuine feature-specific
 // behavior (Regenerate(), wrapping ProFeatureRegenerate) that would make
 // no sense on a Layer, a Note, or a SolidBody. Adding no data member of
@@ -174,7 +191,8 @@ using Table = ModelItem;
 // ModelItem, with no virtual dispatch: this is a compile-time-only
 // distinction (the compiler now tells a Feature apart from a Layer),
 // not a runtime one. `using ModelItem::ModelItem;` inherits both of the
-// base's constructors unchanged.
+// base's constructors unchanged. See AsmComp below for the other type
+// promoted to a real class so far, for the same reason.
 class Feature : public ModelItem {
 public:
   using ModelItem::ModelItem;
@@ -190,6 +208,66 @@ public:
   void Regenerate(const ModelHandle &solid) const {
     CREO_CHECK(detail::FeatureRegenerate(
         solid.Raw(), const_cast<detail::RawModelItem *>(Raw())));
+  }
+};
+
+// ---------------------------------------------------------------------------
+// AsmComp
+// ---------------------------------------------------------------------------
+// Confirmed pro_model_item-shaped from a real ProTOOLKIT sample (pasted
+// verbatim by the user): ProUtilAsmcompSelect() there directly assigns
+// `p_asmcomp->owner`/`->id`/`->type` — the exact same three field names
+// as every other confirmed alias in this file — to build a `ProAsmcomp`
+// by hand, the same way this wrapper's own tests build a Feature/
+// ExpldState/etc. by hand. Promoted to a real derived class rather than
+// a plain alias for the same reason as Feature: it has several genuine
+// per-type operations of its own (an assembly component's referenced
+// model, regeneration, and three status queries), confirmed from the
+// same sample (ProTestAsmcompAct(), the TEST_ASMCOMP_INFO case).
+class AsmComp : public ModelItem {
+public:
+  using ModelItem::ModelItem;
+
+  // The model this assembly component references (ProAsmcompMdlGet) --
+  // e.g. the part or sub-assembly a given component instance points to.
+  // Distinct from Owner()/GetOwnerMdl() (ModelItem above), which give the
+  // model that OWNS this component (its parent assembly), not the one it
+  // refers to.
+  ModelHandle GetMdl() const {
+    detail::RawMdl model = nullptr;
+    CREO_CHECK(detail::AsmcompMdlGet(
+        const_cast<detail::RawModelItem *>(Raw()), &model));
+    return ModelHandle(model);
+  }
+
+  // Regenerates this assembly component (ProAsmcompRegenerate).
+  // `with_children`: whether to also regenerate its own children, per
+  // the sample's own call (`ProAsmcompRegenerate(&asmcomp, PRO_B_TRUE)`).
+  void Regenerate(bool with_children) const {
+    CREO_CHECK(detail::AsmcompRegenerate(
+        const_cast<detail::RawModelItem *>(Raw()),
+        ToProBoolean(with_children)));
+  }
+
+  bool IsBulkItem() const {
+    detail::RawBoolean result = detail::kBooleanFalse;
+    CREO_CHECK(detail::AsmcompIsBulkitem(
+        const_cast<detail::RawModelItem *>(Raw()), &result));
+    return ToBool(result);
+  }
+
+  bool IsUnplaced() const {
+    detail::RawBoolean result = detail::kBooleanFalse;
+    CREO_CHECK(detail::AsmcompIsUnplaced(
+        const_cast<detail::RawModelItem *>(Raw()), &result));
+    return ToBool(result);
+  }
+
+  bool IsSubstitute() const {
+    detail::RawBoolean result = detail::kBooleanFalse;
+    CREO_CHECK(detail::AsmcompIsSubstitute(
+        const_cast<detail::RawModelItem *>(Raw()), &result));
+    return ToBool(result);
   }
 };
 
@@ -502,6 +580,46 @@ ErrorCode VisitGeomitems(const Feature &feature, ObjectType item_type,
   return VisitGeomitems(
       feature, item_type, std::forward<ActionFn>(action),
       [](const GeomItem &) { return static_cast<ErrorCode>(0); });
+}
+
+// ---------------------------------------------------------------------------
+// GetActiveExpldState() / ActivateExpldState(): wrap ProExpldstateActiveGet/
+// ProExpldstateActivate, confirmed from the same real ProTOOLKIT sample as
+// ModelHandle::IsExploded()/Explode()/Unexplode() (ModelHandle.hpp) --
+// ProTestAsmExplode() there reads the active exploded state before acting
+// (ProExpldstateActiveGet), and activates a chosen one afterwards
+// (ProExpldstateActivate). Free functions rather than ModelHandle methods,
+// like VisitExpldStates() above, since they operate on the assembly but
+// return/take an ExpldState, not another ModelHandle-shaped result.
+// ---------------------------------------------------------------------------
+
+// Throws if `assembly` is invalid, same as VisitExpldStates() above.
+// PRO_TK_E_NOT_FOUND ("no active exploded state") is not specially
+// handled here (unlike ModelHandle::TryGetCurrent()'s PRO_TK_E_NOT_FOUND
+// handling): nothing in the pasted sample suggests this is as routine an
+// outcome as "no current model" is -- CREO_CHECK's default throwing
+// behavior is used as-is; add your own optional-returning wrapper on top
+// if your application treats "not currently exploded" as routine.
+inline ExpldState GetActiveExpldState(const ModelHandle &assembly) {
+  if (!assembly.IsValid()) {
+    throw std::logic_error("creo::GetActiveExpldState() called with an "
+                            "invalid (null) ModelHandle");
+  }
+  detail::RawModelItem raw{};
+  CREO_CHECK(detail::ExpldstateActiveGet(assembly.Raw(), &raw));
+  return ExpldState(raw);
+}
+
+// const_cast: see ModelItem::GetName()'s comment above -- same reasoning,
+// ProExpldstateActivate takes a non-const ProExpldstate*.
+inline void ActivateExpldState(const ModelHandle &assembly,
+                                const ExpldState &state) {
+  if (!assembly.IsValid()) {
+    throw std::logic_error("creo::ActivateExpldState() called with an "
+                            "invalid (null) ModelHandle");
+  }
+  CREO_CHECK(detail::ExpldstateActivate(
+      assembly.Raw(), const_cast<detail::RawModelItem *>(state.Raw())));
 }
 
 // ---------------------------------------------------------------------------

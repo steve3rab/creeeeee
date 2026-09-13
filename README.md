@@ -433,6 +433,26 @@ reinterpreting the returned `ProMdl*` as a `ModelHandle*` is valid —
 `Array<T>::Adopt()`'s own `static_assert` enforces this even if
 `ModelHandle`'s implementation ever changed to break that assumption.
 
+`IsExploded()`/`Explode()`/`Unexplode()` (`ProAssemblyIsExploded`/
+`ProAssemblyExplode`/`ProAssemblyUnexplode`) are confirmed from a real
+ProTOOLKIT sample (pasted verbatim by the user) that checks
+`IsExploded()` before calling either of the other two, exactly like these
+three are meant to be used together:
+
+```cpp
+if (!assembly.IsExploded()) {
+  assembly.Explode();
+}
+```
+
+`assembly` is passed to the raw calls as a `ProMdl`: the same sample
+casts a `ProMdl*` straight to `ProAssembly` (`ProAssembly assembly =
+*(ProAssembly *)mdl;`) — direct evidence of the interchangeability
+already assumed elsewhere for `ProSolid`/`Feature::Regenerate()`, now
+backed by an actual pointer cast in real sample code rather than just a
+description. Same invalid-handle guard and `ProToolkitError` conventions
+as `Name()`/`Type()` above.
+
 ### ModelItem
 
 `creo::ModelItem` corresponds to `pro_model_item` (`ProObjects.h`): a
@@ -540,6 +560,19 @@ if (std::optional<creo::Name> name = feat.TryGetName()) {
 }
 ```
 
+`GetOwnerMdl()` (`ProModelitemMdlGet`) is confirmed from the same real
+ProTOOLKIT sample as `AsmComp` below: it calls this explicitly rather
+than reading the item's `owner` field directly, even though that field
+is directly readable too (see `Owner()` above — a plain, `noexcept`
+field read, valid on any `ModelItem` including one built by hand with no
+real session behind it). Kept as a separate method rather than a
+replacement for `Owner()`: nothing confirms the two ever disagree, only
+that PTC's own sample code prefers the function call.
+
+```cpp
+creo::ModelHandle owner = feat.GetOwnerMdl();  // ProModelitemMdlGet
+```
+
 Two `ModelItem` are comparable by equality — they designate the same
 database object if their type, id, and owning model all match, matching
 how ProTOOLKIT itself identifies a database object:
@@ -548,14 +581,13 @@ how ProTOOLKIT itself identifies a database object:
 if (feat1 == feat2) { /* same feature */ }
 ```
 
-`Feature` is the one exception to "all 27 names are plain aliases of
-`ModelItem`": it is a real derived class (`class Feature : public
-ModelItem`), because it has one feature-specific operation —
-`Regenerate()` (`ProFeatureRegenerate`) — that would not make sense on a
-`Layer`, a `Note`, or a `SolidBody`. It adds no data member of its own,
-so it stays exactly the same size/layout as `ModelItem`, with no virtual
+`Feature` and `AsmComp` are the two exceptions to "the rest are plain
+aliases of `ModelItem`": both are real derived classes, because each has
+genuine per-type operations that would not make sense on a `Layer`, a
+`Note`, or a `SolidBody`. Neither adds a data member of its own, so both
+stay exactly the same size/layout as `ModelItem`, with no virtual
 dispatch: this is a compile-time-only distinction (the compiler tells a
-`Feature` apart from any other alias), not a runtime one.
+`Feature`/`AsmComp` apart from any other alias), not a runtime one.
 
 ```cpp
 creo::Feature feat(raw_feature);
@@ -574,12 +606,35 @@ feat.Regenerate(feat.Owner());  // CREO_CHECK(ProFeatureRegenerate(...))
 > `detail/ProtoolkitCompat.hpp`) — loudly, not silently wrong — and the
 > fix is local to that one line.
 
-Only `Feature` has been promoted to a real class so far, on the strength
-of this one concrete per-type operation. The other 26 aliases
-(`GeomItem`, `Dimension`, `Layer`, `Note`, ...) stay plain aliases of
-`ModelItem` until a similarly concrete need for each shows up — turning
-all of them into distinct classes speculatively, before any of them has
-actual per-type behavior, was considered and deliberately deferred.
+`creo::AsmComp` corresponds to `ProAsmcomp` (`ProAsmcomp.h`), confirmed
+`pro_model_item`-shaped from a real ProTOOLKIT sample (pasted verbatim by
+the user): `ProUtilAsmcompSelect()` there directly assigns
+`p_asmcomp->owner`/`->id`/`->type` — the exact same three field names as
+every other confirmed alias in this file — to build a `ProAsmcomp` by
+hand. It has four confirmed per-type operations of its own, from the
+same sample (`ProTestAsmcompAct()`, the `TEST_ASMCOMP_INFO` case):
+
+```cpp
+creo::AsmComp comp(raw_asmcomp);
+creo::ModelHandle referenced = comp.GetMdl();      // ProAsmcompMdlGet
+comp.Regenerate(/*with_children=*/true);            // ProAsmcompRegenerate
+bool bulk = comp.IsBulkItem();                      // ProAsmcompIsBulkitem
+bool unplaced = comp.IsUnplaced();                  // ProAsmcompIsUnplaced
+bool substitute = comp.IsSubstitute();              // ProAsmcompIsSubstitute
+```
+
+`GetMdl()` is distinct from `Owner()`/`GetOwnerMdl()` (both `ModelItem`
+methods, above): those give the model that OWNS this component (its
+parent assembly), while `GetMdl()` gives the model this component
+REFERENCES (e.g. the part or sub-assembly a given instance points to).
+
+Only `Feature` and `AsmComp` have been promoted to real classes so far,
+on the strength of their confirmed per-type operations. The other
+aliases (`GeomItem`, `Dimension`, `Layer`, `Note`, ...) stay plain
+aliases of `ModelItem` until a similarly concrete need for each shows up
+— turning all of them into distinct classes speculatively, before any of
+them has actual per-type behavior, was considered and deliberately
+deferred.
 
 #### VisitFeatures()
 
@@ -744,6 +799,30 @@ in this wrapper yet (unlike `ModelHandle::IsValid()`) to check against.
 > `FeatureGeomitemVisit`, all in `detail/ProtoolkitCompat.hpp`) rely on
 > whichever already-included PTC header happens to declare them; if none
 > does, the real-SDK build fails to compile right there, loudly.
+
+#### GetActiveExpldState() / ActivateExpldState()
+
+Two free functions wrapping `ProExpldstateActiveGet`/`ProExpldstateActivate`,
+confirmed from the same real ProTOOLKIT sample as `ModelHandle::IsExploded()`/
+`Explode()`/`Unexplode()` above: the sample reads the active exploded state
+before acting on it, and activates a chosen one afterwards. Free functions
+rather than `ModelHandle` methods, like `VisitExpldStates()` above, since
+they operate on the assembly but return/take an `ExpldState`, not another
+`ModelHandle`-shaped result:
+
+```cpp
+creo::ExpldState active = creo::GetActiveExpldState(assembly);  // throws
+                                                                 // PRO_TK_E_NOT_FOUND
+                                                                 // if none
+creo::ActivateExpldState(assembly, active);
+```
+
+Unlike `ModelHandle::TryGetCurrent()`'s handling of `PRO_TK_E_NOT_FOUND`,
+`GetActiveExpldState()` does not special-case it into a `std::nullopt`
+return: nothing in the pasted sample suggests "not currently exploded" is
+as routine an outcome as "no current model" is, so `CREO_CHECK`'s default
+throwing behavior is used as-is. Both functions share the same
+invalid-handle guard as the `Visit*` functions above.
 
 ### Geometry: VisitOpaque() / GeometryHandle&lt;T&gt;
 

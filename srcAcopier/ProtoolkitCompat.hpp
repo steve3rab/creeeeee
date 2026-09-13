@@ -3,7 +3,9 @@
 #define CREO_WRAPPER_HAS_REAL_SDK 1
 
 #include <ProArray.h>
+#include <ProAsmcomp.h>
 #include <ProAssembly.h>
+#include <ProExpldstate.h>
 #include <ProMdl.h>
 #include <ProModelitem.h>
 #include <ProObjects.h>
@@ -52,6 +54,49 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
 
 inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return ::ProFeatureRegenerate(solid, feature);
+}
+
+inline ProErrorCode ModelitemMdlGet(RawModelItem *item, RawMdl *p_model) {
+  return ::ProModelitemMdlGet(item, p_model);
+}
+
+inline ProErrorCode AssemblyIsExploded(RawMdl assembly,
+                                        RawBoolean *is_exploded) {
+  return ::ProAssemblyIsExploded(assembly, is_exploded);
+}
+inline ProErrorCode AssemblyExplode(RawMdl assembly) {
+  return ::ProAssemblyExplode(assembly);
+}
+inline ProErrorCode AssemblyUnexplode(RawMdl assembly) {
+  return ::ProAssemblyUnexplode(assembly);
+}
+inline ProErrorCode ExpldstateActiveGet(RawMdl assembly,
+                                         RawModelItem *p_expldstate) {
+  return ::ProExpldstateActiveGet(assembly, p_expldstate);
+}
+inline ProErrorCode ExpldstateActivate(RawMdl assembly,
+                                        RawModelItem *expldstate) {
+  return ::ProExpldstateActivate(assembly, expldstate);
+}
+
+inline ProErrorCode AsmcompMdlGet(RawModelItem *asmcomp, RawMdl *p_model) {
+  return ::ProAsmcompMdlGet(asmcomp, p_model);
+}
+inline ProErrorCode AsmcompRegenerate(RawModelItem *asmcomp,
+                                       RawBoolean with_children) {
+  return ::ProAsmcompRegenerate(asmcomp, with_children);
+}
+inline ProErrorCode AsmcompIsBulkitem(RawModelItem *asmcomp,
+                                       RawBoolean *p_result) {
+  return ::ProAsmcompIsBulkitem(asmcomp, p_result);
+}
+inline ProErrorCode AsmcompIsUnplaced(RawModelItem *asmcomp,
+                                       RawBoolean *p_result) {
+  return ::ProAsmcompIsUnplaced(asmcomp, p_result);
+}
+inline ProErrorCode AsmcompIsSubstitute(RawModelItem *asmcomp,
+                                         RawBoolean *p_result) {
+  return ::ProAsmcompIsSubstitute(asmcomp, p_result);
 }
 
 using RawAppData = ::ProAppData;
