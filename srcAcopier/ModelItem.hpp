@@ -7,6 +7,7 @@
 
 #include <exception>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -97,6 +98,9 @@ ProErrorCode ModelItemVisitTrampoline(RawModelItem *item, ProErrorCode status,
   auto *context =
       static_cast<ModelItemVisitContext<ItemT, ActionFn, FilterFn> *>(
           app_data);
+  if (item == nullptr) {
+    return static_cast<ProErrorCode>(-1);
+  }
   if (context->exception) {
     return static_cast<ProErrorCode>(-1);
   }
@@ -114,6 +118,9 @@ ProErrorCode ModelItemFilterTrampoline(RawModelItem *item,
   auto *context =
       static_cast<ModelItemVisitContext<ItemT, ActionFn, FilterFn> *>(
           app_data);
+  if (item == nullptr) {
+    return static_cast<ProErrorCode>(-1);
+  }
   try {
     return context->filter(ItemT(*item));
   } catch (...) {
@@ -127,6 +134,10 @@ ProErrorCode ModelItemFilterTrampoline(RawModelItem *item,
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action,
                          FilterFn &&filter) {
+  if (!solid.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitFeatures() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<Feature, ActionT, FilterT> context{
@@ -151,6 +162,11 @@ ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitExpldStates(const ModelHandle &assembly, ActionFn &&action,
                             FilterFn &&filter) {
+  if (!assembly.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitExpldStates() called with an invalid (null) "
+        "ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<ExpldState, ActionT, FilterT> context{
@@ -175,6 +191,10 @@ ErrorCode VisitExpldStates(const ModelHandle &assembly, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitNotes(const ModelHandle &model, ActionFn &&action,
                       FilterFn &&filter) {
+  if (!model.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitNotes() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<Note, ActionT, FilterT> context{
@@ -196,6 +216,10 @@ ErrorCode VisitNotes(const ModelHandle &model, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitProcSteps(const ModelHandle &solid, ActionFn &&action,
                           FilterFn &&filter) {
+  if (!solid.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitProcSteps() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<ProcStep, ActionT, FilterT> context{
@@ -220,6 +244,10 @@ ErrorCode VisitProcSteps(const ModelHandle &solid, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitSimpReps(const ModelHandle &solid, ActionFn &&action,
                          FilterFn &&filter) {
+  if (!solid.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitSimpReps() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<SimpRep, ActionT, FilterT> context{

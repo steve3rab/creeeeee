@@ -583,6 +583,15 @@ early stop are both often exactly what the caller's own action/filter
 intended, not a failure: inspect the code yourself, the way you would in
 plain C.
 
+That raw-code policy covers the *outcome of the visit* only. Passing an
+invalid (null) `solid` is a different kind of problem — a caller bug, not
+a visit outcome — so it is checked separately: `VisitFeatures()` throws
+`std::logic_error` immediately if `!solid.IsValid()`, before even
+attempting the raw PTC call, exactly like `ModelHandle::Name()`/`Type()`/
+etc. already do (see "ModelHandle" above). `CollectFeatures()`/
+`FindFeatureByName()` inherit this for free, since both are built
+directly on `VisitFeatures()`.
+
 A C++ exception thrown from either callback is never let to unwind
 through ProTOOLKIT's C stack frames — undefined behavior for a C API not
 built to expect it. It is caught internally, the visit is stopped, and
@@ -677,6 +686,14 @@ action, unlike every other visit function here — confirmed straight from
 (`detail/ProtoolkitCompat.hpp`) reorders the two arguments right at that
 one call site, so `creo::VisitSimpReps()` takes `(action, filter)` like
 everything else and needs no special case of its own.
+
+The four `ModelHandle`-scoped ones (`VisitExpldStates`/`VisitNotes`/
+`VisitProcSteps`/`VisitSimpReps`) also share `VisitFeatures()`'s
+invalid-handle guard (`std::logic_error` if the handle is null, before
+the raw call — see above). `VisitGeomitems()` does not have an equivalent
+guard: it is scoped to a `Feature`, not a `ModelHandle`, and `ModelItem`/
+`Feature` have no established "is this a valid/non-null item" convention
+in this wrapper yet (unlike `ModelHandle::IsValid()`) to check against.
 
 > **Caveat**: as with `ProSolidFeatVisit` above, none of these five raw
 > functions' exact declaring headers are independently confirmed —

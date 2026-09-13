@@ -7,6 +7,7 @@
 
 #include <exception>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -187,6 +188,13 @@ ProErrorCode ModelItemVisitTrampoline(RawModelItem *item, ProErrorCode status,
   auto *context =
       static_cast<ModelItemVisitContext<ItemT, ActionFn, FilterFn> *>(
           app_data);
+  if (item == nullptr) {
+    // Defensive: every raw PTC visit function this engine serves is
+    // documented to pass the address of a real item here, but a null
+    // item would otherwise be dereferenced below (undefined behavior) --
+    // fail loudly instead of trusting that unconditionally.
+    return static_cast<ProErrorCode>(-1); // PRO_TK_GENERAL_ERROR
+  }
   if (context->exception) {
     // The filter already failed for this item (see below): PTC's own
     // control flow leaves no way to skip straight to termination from
@@ -209,6 +217,10 @@ ProErrorCode ModelItemFilterTrampoline(RawModelItem *item,
   auto *context =
       static_cast<ModelItemVisitContext<ItemT, ActionFn, FilterFn> *>(
           app_data);
+  if (item == nullptr) {
+    // Defensive: see ModelItemVisitTrampoline's identical guard above.
+    return static_cast<ProErrorCode>(-1); // PRO_TK_GENERAL_ERROR
+  }
   try {
     return context->filter(ItemT(*item));
   } catch (...) {
@@ -246,9 +258,19 @@ ProErrorCode ModelItemFilterTrampoline(RawModelItem *item,
 // unwind through ProTOOLKIT's C stack frames (see the trampolines
 // above): it is rethrown here once control is back on the C++ side, in
 // place of returning a code at all.
+//
+// Throws std::logic_error if `solid` itself is invalid (null), before
+// even attempting the raw PTC call — same guard and rationale as
+// ModelHandle::Name()/Type()/etc. (ModelHandle.hpp): a caller bug (an
+// invalid handle) is a different kind of problem than "the visit found
+// nothing" above, so it is not folded into the raw-code contract.
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action,
                          FilterFn &&filter) {
+  if (!solid.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitFeatures() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<Feature, ActionT, FilterT> context{
@@ -292,6 +314,11 @@ ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitExpldStates(const ModelHandle &assembly, ActionFn &&action,
                             FilterFn &&filter) {
+  if (!assembly.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitExpldStates() called with an invalid (null) "
+        "ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<ExpldState, ActionT, FilterT> context{
@@ -317,6 +344,10 @@ ErrorCode VisitExpldStates(const ModelHandle &assembly, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitNotes(const ModelHandle &model, ActionFn &&action,
                       FilterFn &&filter) {
+  if (!model.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitNotes() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<Note, ActionT, FilterT> context{
@@ -339,6 +370,10 @@ ErrorCode VisitNotes(const ModelHandle &model, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitProcSteps(const ModelHandle &solid, ActionFn &&action,
                           FilterFn &&filter) {
+  if (!solid.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitProcSteps() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<ProcStep, ActionT, FilterT> context{
@@ -367,6 +402,10 @@ ErrorCode VisitProcSteps(const ModelHandle &solid, ActionFn &&action) {
 template <typename ActionFn, typename FilterFn>
 ErrorCode VisitSimpReps(const ModelHandle &solid, ActionFn &&action,
                          FilterFn &&filter) {
+  if (!solid.IsValid()) {
+    throw std::logic_error(
+        "creo::VisitSimpReps() called with an invalid (null) ModelHandle");
+  }
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
   detail::ModelItemVisitContext<SimpRep, ActionT, FilterT> context{
