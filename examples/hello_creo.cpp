@@ -49,6 +49,17 @@
 //     anything useful; otherwise it just shows the "no current model"
 //     path.
 //
+//  7) PrintExpldStates(): one representative of the four other
+//     modelitem-shaped visit functions confirmed alongside
+//     ProSolidFeatVisit (ProSolidExpldstateVisit here; also
+//     VisitNotes()/VisitProcSteps()/VisitSimpReps()/VisitGeomitems(), not
+//     each demonstrated to keep this tour short) — see ModelItem.hpp.
+//     Not shown here at all: creo::VisitOpaque()/GeometryHandle<T>
+//     (creo/Geometry.hpp), the by-value-handle counterpart covering
+//     Csys/Axis/Quilt/Surface/Contour/Edge — it needs the real PTC type
+//     names from your own project's headers, which this example does not
+//     have (see Geometry.hpp's own comment for why).
+//
 // Technical note: this file only uses std::printf/std::puts (never
 // std::wprintf) for output. Mixing "wide" and "narrow" calls on the same
 // stdout stream is undefined behavior in C/C++ (the stream locks onto
@@ -355,6 +366,35 @@ void PrintFeatures() {
     }
   }
 }
+
+// One representative of the four other modelitem-shaped visit functions
+// confirmed alongside VisitFeatures() from ProUtilVisit.c (VisitNotes(),
+// VisitProcSteps(), VisitSimpReps(), VisitGeomitems() all follow the same
+// shape/contract, just not each demonstrated here to keep this tour
+// short). Note: there is no VisitOpaque()/GeometryHandle<> demo here —
+// unlike the functions above, that family (Csys/Axis/Quilt/Surface/
+// Contour/Edge, see creo/Geometry.hpp) needs the *real* PTC type names
+// from your own project's headers, which this example does not have.
+void PrintExpldStates() {
+  std::optional<creo::ModelHandle> active = creo::ModelHandle::TryGetActive();
+  if (!active.has_value()) {
+    std::puts("No active model to visit exploded states on.");
+    return;
+  }
+
+  int count = 0;
+  creo::ErrorCode result =
+      creo::VisitExpldStates(*active, [&](const creo::ExpldState &, creo::ErrorCode) {
+        ++count;
+        return static_cast<creo::ErrorCode>(0); // PRO_TK_NO_ERROR: continue
+      });
+
+  if (result == static_cast<creo::ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+    std::puts("No exploded states found on the active model.");
+  } else {
+    std::printf("Visited %d exploded state(s)\n", count);
+  }
+}
 #endif
 
 } // namespace
@@ -378,6 +418,9 @@ int main() {
 
     std::puts("\n--- Creo session: VisitFeatures() ---");
     PrintFeatures();
+
+    std::puts("\n--- Creo session: VisitExpldStates() ---");
+    PrintExpldStates();
 #else
     std::puts(
         "ProTOOLKIT SDK not found: this part was built in 'shim' mode. "

@@ -134,6 +134,66 @@ inline ProErrorCode SolidFeatVisit(RawMdl solid,
   return ::ProSolidFeatVisit(solid, visit_action, filter_action, app_data);
 }
 
+// Additional visit functions confirmed from PTC's own ProUtilVisit.c
+// sample utility (pasted verbatim by the user): all five below share
+// ProSolidFeatVisit's "modelitem-style" calling convention (a 3-param
+// action taking a pointer to a pro_model_item-shaped struct, plus a
+// 2-param filter) since ExpldState/Note/ProcStep/SimpRep/GeomItem are
+// themselves just further typedef names for pro_model_item — so the same
+// callback types apply, renamed here only for readability at call sites
+// that are not specifically about features.
+using RawModelItemVisitAction = RawFeatureVisitAction;
+using RawModelItemFilterAction = RawFeatureFilterAction;
+
+// See creo::VisitExpldStates() (ModelItem.hpp).
+inline ProErrorCode
+SolidExpldstateVisit(RawMdl assembly, RawModelItemVisitAction visit_action,
+                      RawModelItemFilterAction filter_action,
+                      RawAppData app_data) {
+  return ::ProSolidExpldstateVisit(assembly, visit_action, filter_action,
+                                    app_data);
+}
+
+// See creo::VisitNotes() (ModelItem.hpp).
+inline ProErrorCode MdlNoteVisit(RawMdl model,
+                                  RawModelItemVisitAction visit_action,
+                                  RawModelItemFilterAction filter_action,
+                                  RawAppData app_data) {
+  return ::ProMdlNoteVisit(model, visit_action, filter_action, app_data);
+}
+
+// See creo::VisitProcSteps() (ModelItem.hpp).
+inline ProErrorCode ProcstepVisit(RawMdl solid,
+                                   RawModelItemVisitAction visit_action,
+                                   RawModelItemFilterAction filter_action,
+                                   RawAppData app_data) {
+  return ::ProProcstepVisit(solid, visit_action, filter_action, app_data);
+}
+
+// ProSolidSimprepVisit takes filter BEFORE action, unlike every other
+// visit function here (confirmed from ProUtilVisit.c). Reordered back to
+// the wrapper's usual (visit_action, filter_action) order at this single
+// boundary, so creo::VisitSimpReps() (ModelItem.hpp) needs no special
+// case of its own.
+inline ProErrorCode SolidSimprepVisit(RawMdl solid,
+                                       RawModelItemVisitAction visit_action,
+                                       RawModelItemFilterAction filter_action,
+                                       RawAppData app_data) {
+  return ::ProSolidSimprepVisit(solid, filter_action, visit_action, app_data);
+}
+
+// ProFeatureGeomitemVisit takes an extra ProType (which kind of geomitem
+// to visit) between the owning feature and the action/filter pair. See
+// creo::VisitGeomitems() (ModelItem.hpp).
+inline ProErrorCode
+FeatureGeomitemVisit(RawModelItem *feature, RawObjectType item_type,
+                      RawModelItemVisitAction visit_action,
+                      RawModelItemFilterAction filter_action,
+                      RawAppData app_data) {
+  return ::ProFeatureGeomitemVisit(feature, item_type, visit_action,
+                                    filter_action, app_data);
+}
+
 // Trampolines below are to ProAssembly.h functions (see the
 // ModelHandle methods of the same name, minus "Mdl"/"Session", in
 // ModelHandle.hpp).
@@ -232,6 +292,43 @@ inline ProErrorCode SolidFeatVisit(RawMdl solid,
                                     RawAppData app_data) {
   return shim::ProSolidFeatVisit(solid, visit_action, filter_action,
                                   app_data);
+}
+using RawModelItemVisitAction = RawFeatureVisitAction;
+using RawModelItemFilterAction = RawFeatureFilterAction;
+inline ProErrorCode
+SolidExpldstateVisit(RawMdl assembly, RawModelItemVisitAction visit_action,
+                      RawModelItemFilterAction filter_action,
+                      RawAppData app_data) {
+  return shim::ProSolidExpldstateVisit(assembly, visit_action, filter_action,
+                                        app_data);
+}
+inline ProErrorCode MdlNoteVisit(RawMdl model,
+                                  RawModelItemVisitAction visit_action,
+                                  RawModelItemFilterAction filter_action,
+                                  RawAppData app_data) {
+  return shim::ProMdlNoteVisit(model, visit_action, filter_action, app_data);
+}
+inline ProErrorCode ProcstepVisit(RawMdl solid,
+                                   RawModelItemVisitAction visit_action,
+                                   RawModelItemFilterAction filter_action,
+                                   RawAppData app_data) {
+  return shim::ProProcstepVisit(solid, visit_action, filter_action,
+                                 app_data);
+}
+inline ProErrorCode SolidSimprepVisit(RawMdl solid,
+                                       RawModelItemVisitAction visit_action,
+                                       RawModelItemFilterAction filter_action,
+                                       RawAppData app_data) {
+  return shim::ProSolidSimprepVisit(solid, filter_action, visit_action,
+                                     app_data);
+}
+inline ProErrorCode
+FeatureGeomitemVisit(RawModelItem *feature, RawObjectType item_type,
+                      RawModelItemVisitAction visit_action,
+                      RawModelItemFilterAction filter_action,
+                      RawAppData app_data) {
+  return shim::ProFeatureGeomitemVisit(feature, item_type, visit_action,
+                                        filter_action, app_data);
 }
 inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
   return shim::ProMdlActiveGet(p_mdl);

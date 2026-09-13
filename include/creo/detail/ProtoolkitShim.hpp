@@ -752,6 +752,80 @@ inline ProError ProSolidFeatVisit(ProMdl solid,
 }
 
 // -----------------------------------------------------------------------
+// Additional visit functions confirmed from PTC's own ProUtilVisit.c
+// sample utility (pasted verbatim by the user). Unlike ProSolidFeatVisit
+// above, these five are kept as plain stubs (no fake item count to
+// configure): their real control-flow behavior is identical to
+// ProSolidFeatVisit's (already exercised there) and is instead verified
+// against dedicated fake-SDK fixtures in real-SDK mode, not reproduced a
+// second time here.
+// -----------------------------------------------------------------------
+
+inline ProError ProSolidExpldstateVisit(ProMdl assembly,
+                                         ProFeatureVisitAction visit_action,
+                                         ProFeatureFilterAction filter_action,
+                                         ProAppData app_data) {
+  (void)app_data;
+  if (assembly == nullptr || visit_action == nullptr ||
+      filter_action == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+inline ProError ProMdlNoteVisit(ProMdl model,
+                                 ProFeatureVisitAction visit_action,
+                                 ProFeatureFilterAction filter_action,
+                                 ProAppData app_data) {
+  (void)app_data;
+  if (model == nullptr || visit_action == nullptr ||
+      filter_action == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+inline ProError ProProcstepVisit(ProMdl solid,
+                                  ProFeatureVisitAction visit_action,
+                                  ProFeatureFilterAction filter_action,
+                                  ProAppData app_data) {
+  (void)app_data;
+  if (solid == nullptr || visit_action == nullptr ||
+      filter_action == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// Filter BEFORE action, matching the real ProSolidSimprepVisit's
+// confirmed (unusual) parameter order.
+inline ProError ProSolidSimprepVisit(ProMdl solid,
+                                      ProFeatureFilterAction filter_action,
+                                      ProFeatureVisitAction visit_action,
+                                      ProAppData app_data) {
+  (void)app_data;
+  if (solid == nullptr || visit_action == nullptr ||
+      filter_action == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+inline ProError ProFeatureGeomitemVisit(ProFeature *feature,
+                                         ProType item_type,
+                                         ProFeatureVisitAction visit_action,
+                                         ProFeatureFilterAction filter_action,
+                                         ProAppData app_data) {
+  (void)item_type;
+  (void)app_data;
+  if (feature == nullptr || visit_action == nullptr ||
+      filter_action == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  return PRO_TK_NOT_IMPLEMENTED;
+}
+
+// -----------------------------------------------------------------------
 // ProArray (ProArray.h, Creo 10): PTC's generic dynamic array, a plain
 // opaque `void*` on the API side. Unlike ProMdl/ProError above (simple
 // substitute types, never algorithmically exercised in shim mode),

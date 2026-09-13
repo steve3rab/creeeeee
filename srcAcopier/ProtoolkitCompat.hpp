@@ -64,6 +64,47 @@ inline ProErrorCode SolidFeatVisit(RawMdl solid,
   return ::ProSolidFeatVisit(solid, visit_action, filter_action, app_data);
 }
 
+using RawModelItemVisitAction = RawFeatureVisitAction;
+using RawModelItemFilterAction = RawFeatureFilterAction;
+
+inline ProErrorCode
+SolidExpldstateVisit(RawMdl assembly, RawModelItemVisitAction visit_action,
+                      RawModelItemFilterAction filter_action,
+                      RawAppData app_data) {
+  return ::ProSolidExpldstateVisit(assembly, visit_action, filter_action,
+                                    app_data);
+}
+
+inline ProErrorCode MdlNoteVisit(RawMdl model,
+                                  RawModelItemVisitAction visit_action,
+                                  RawModelItemFilterAction filter_action,
+                                  RawAppData app_data) {
+  return ::ProMdlNoteVisit(model, visit_action, filter_action, app_data);
+}
+
+inline ProErrorCode ProcstepVisit(RawMdl solid,
+                                   RawModelItemVisitAction visit_action,
+                                   RawModelItemFilterAction filter_action,
+                                   RawAppData app_data) {
+  return ::ProProcstepVisit(solid, visit_action, filter_action, app_data);
+}
+
+inline ProErrorCode SolidSimprepVisit(RawMdl solid,
+                                       RawModelItemVisitAction visit_action,
+                                       RawModelItemFilterAction filter_action,
+                                       RawAppData app_data) {
+  return ::ProSolidSimprepVisit(solid, filter_action, visit_action, app_data);
+}
+
+inline ProErrorCode
+FeatureGeomitemVisit(RawModelItem *feature, RawObjectType item_type,
+                      RawModelItemVisitAction visit_action,
+                      RawModelItemFilterAction filter_action,
+                      RawAppData app_data) {
+  return ::ProFeatureGeomitemVisit(feature, item_type, visit_action,
+                                    filter_action, app_data);
+}
+
 inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
   return ::ProMdlActiveGet(p_mdl);
 }

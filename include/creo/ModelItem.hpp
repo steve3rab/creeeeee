@@ -80,6 +80,41 @@ inline bool operator!=(const ModelItem &lhs, const ModelItem &rhs) noexcept {
   return !(lhs == rhs);
 }
 
+// PTC gives `pro_model_item` one typedef name per kind of database
+// object; this wrapper mirrors that with one alias per name, all sharing
+// the same ModelItem implementation (see the class comment above) —
+// except Feature, which is a real derived class (see below) rather than
+// a bare alias, since it alone has a per-type method so far. Declared
+// here (rather than at the end of the file, where PTC's own header lists
+// them) so that the visit functions further down — several of which
+// visit one of these aliases rather than a Feature — can name them.
+using GeomItem = ModelItem;
+using ExtObj = ModelItem;
+using ProcStep = ModelItem;
+using SimpRep = ModelItem;
+using ExpldState = ModelItem;
+using Layer = ModelItem;
+using Dimension = ModelItem;
+using DtlNote = ModelItem;
+using DtlSymInst = ModelItem;
+using Gtol = ModelItem;
+using CompDisp = ModelItem;
+using DwgTable = ModelItem;
+using Note = ModelItem;
+using AnnotationElem = ModelItem;
+using Annotation = ModelItem;
+using AnnotationPlane = ModelItem;
+using Symbol = ModelItem;
+using SurfFinish = ModelItem;
+using MechItem = ModelItem;
+using MaterialItem = ModelItem;
+using CombState = ModelItem;
+using LayerState = ModelItem;
+using ApprnState = ModelItem;
+using SolidBody = ModelItem;
+using Ply = ModelItem;
+using Table = ModelItem;
+
 // ---------------------------------------------------------------------------
 // Feature
 // ---------------------------------------------------------------------------
@@ -128,20 +163,30 @@ namespace detail {
 // escaped one of them mid-visit: ProTOOLKIT's C stack frames are not
 // exception-aware, so an exception must never unwind through them (that
 // is undefined behavior) — it is stashed here instead, and rethrown by
-// VisitFeatures() once ProSolidFeatVisit itself has returned.
-template <typename ActionFn, typename FilterFn> struct FeatureVisitContext {
+// the VisitXxx() entry point once the raw PTC visit call itself has
+// returned. Parameterized on `ItemT` (Feature, or any of the plain
+// ModelItem aliases such as ExpldState/Note/ProcStep/SimpRep/GeomItem)
+// so the same engine below serves every "modelitem-style" visit function
+// confirmed from PTC's own ProUtilVisit.c sample utility, not just
+// ProSolidFeatVisit.
+template <typename ItemT, typename ActionFn, typename FilterFn>
+struct ModelItemVisitContext {
   ActionFn &action;
   FilterFn &filter;
   std::exception_ptr exception;
 };
 
 // Matches ProFeatureVisitAction's signature exactly (RawModelItem is
-// ProFeature; ProErrorCode is ProError; RawAppData is ProAppData).
-template <typename ActionFn, typename FilterFn>
-ProErrorCode FeatureVisitTrampoline(RawModelItem *feature, ProErrorCode status,
-                                     RawAppData app_data) noexcept {
+// pro_model_item, the same struct every ItemT below wraps; ProErrorCode
+// is ProError; RawAppData is ProAppData) — and therefore also matches
+// every other "modelitem-style" visit action confirmed from
+// ProUtilVisit.c, since they all share that one struct shape.
+template <typename ItemT, typename ActionFn, typename FilterFn>
+ProErrorCode ModelItemVisitTrampoline(RawModelItem *item, ProErrorCode status,
+                                       RawAppData app_data) noexcept {
   auto *context =
-      static_cast<FeatureVisitContext<ActionFn, FilterFn> *>(app_data);
+      static_cast<ModelItemVisitContext<ItemT, ActionFn, FilterFn> *>(
+          app_data);
   if (context->exception) {
     // The filter already failed for this item (see below): PTC's own
     // control flow leaves no way to skip straight to termination from
@@ -150,21 +195,22 @@ ProErrorCode FeatureVisitTrampoline(RawModelItem *feature, ProErrorCode status,
     return static_cast<ProErrorCode>(-1); // PRO_TK_GENERAL_ERROR
   }
   try {
-    return context->action(Feature(*feature), status);
+    return context->action(ItemT(*item), status);
   } catch (...) {
     context->exception = std::current_exception();
     return static_cast<ProErrorCode>(-1); // PRO_TK_GENERAL_ERROR
   }
 }
 
-// Matches ProFeatureFilterAction's signature exactly.
-template <typename ActionFn, typename FilterFn>
-ProErrorCode FeatureFilterTrampoline(RawModelItem *feature,
-                                      RawAppData app_data) noexcept {
+// Matches ProFeatureFilterAction's signature exactly (see above).
+template <typename ItemT, typename ActionFn, typename FilterFn>
+ProErrorCode ModelItemFilterTrampoline(RawModelItem *item,
+                                        RawAppData app_data) noexcept {
   auto *context =
-      static_cast<FeatureVisitContext<ActionFn, FilterFn> *>(app_data);
+      static_cast<ModelItemVisitContext<ItemT, ActionFn, FilterFn> *>(
+          app_data);
   try {
-    return context->filter(Feature(*feature));
+    return context->filter(ItemT(*item));
   } catch (...) {
     context->exception = std::current_exception();
     // Anything other than PRO_TK_CONTINUE calls the action next (PTC's
@@ -205,11 +251,12 @@ ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action,
                          FilterFn &&filter) {
   using ActionT = std::remove_reference_t<ActionFn>;
   using FilterT = std::remove_reference_t<FilterFn>;
-  detail::FeatureVisitContext<ActionT, FilterT> context{action, filter,
-                                                          nullptr};
+  detail::ModelItemVisitContext<Feature, ActionT, FilterT> context{
+      action, filter, nullptr};
   ErrorCode result = detail::SolidFeatVisit(
-      solid.Raw(), &detail::FeatureVisitTrampoline<ActionT, FilterT>,
-      &detail::FeatureFilterTrampoline<ActionT, FilterT>, &context);
+      solid.Raw(), &detail::ModelItemVisitTrampoline<Feature, ActionT, FilterT>,
+      &detail::ModelItemFilterTrampoline<Feature, ActionT, FilterT>,
+      &context);
   if (context.exception) {
     std::rethrow_exception(context.exception);
   }
@@ -224,6 +271,151 @@ ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action) {
   return VisitFeatures(
       solid, std::forward<ActionFn>(action),
       [](const Feature &) { return static_cast<ErrorCode>(0); }); // PRO_TK_NO_ERROR
+}
+
+// ---------------------------------------------------------------------------
+// VisitExpldStates() / VisitNotes() / VisitProcSteps() / VisitSimpReps() /
+// VisitGeomitems(): four more visit functions confirmed from PTC's own
+// ProUtilVisit.c sample utility (ProUtilCollectExpldStates(),
+// ProUtilVisitNotes(), ProUtilVisitProcsteps(), ProUtilVisitSimpreps(),
+// ProUtilVisitGeomitems() — names paraphrased, the actual raw calls are
+// ProSolidExpldstateVisit/ProMdlNoteVisit/ProProcstepVisit/
+// ProSolidSimprepVisit/ProFeatureGeomitemVisit). All five share
+// VisitFeatures()'s exact contract (status/return codes, filter
+// PRO_TK_CONTINUE convention, exception-safety) and are built on the same
+// detail::ModelItemVisitContext engine above — only the underlying raw
+// PTC call and the visited item type differ. See VisitFeatures() above
+// for the full contract documentation, not repeated per function here.
+// ---------------------------------------------------------------------------
+
+// Wraps ProSolidExpldstateVisit: visits the exploded states of `assembly`.
+template <typename ActionFn, typename FilterFn>
+ErrorCode VisitExpldStates(const ModelHandle &assembly, ActionFn &&action,
+                            FilterFn &&filter) {
+  using ActionT = std::remove_reference_t<ActionFn>;
+  using FilterT = std::remove_reference_t<FilterFn>;
+  detail::ModelItemVisitContext<ExpldState, ActionT, FilterT> context{
+      action, filter, nullptr};
+  ErrorCode result = detail::SolidExpldstateVisit(
+      assembly.Raw(),
+      &detail::ModelItemVisitTrampoline<ExpldState, ActionT, FilterT>,
+      &detail::ModelItemFilterTrampoline<ExpldState, ActionT, FilterT>,
+      &context);
+  if (context.exception) {
+    std::rethrow_exception(context.exception);
+  }
+  return result;
+}
+template <typename ActionFn>
+ErrorCode VisitExpldStates(const ModelHandle &assembly, ActionFn &&action) {
+  return VisitExpldStates(
+      assembly, std::forward<ActionFn>(action),
+      [](const ExpldState &) { return static_cast<ErrorCode>(0); });
+}
+
+// Wraps ProMdlNoteVisit: visits the notes of `model`.
+template <typename ActionFn, typename FilterFn>
+ErrorCode VisitNotes(const ModelHandle &model, ActionFn &&action,
+                      FilterFn &&filter) {
+  using ActionT = std::remove_reference_t<ActionFn>;
+  using FilterT = std::remove_reference_t<FilterFn>;
+  detail::ModelItemVisitContext<Note, ActionT, FilterT> context{
+      action, filter, nullptr};
+  ErrorCode result = detail::MdlNoteVisit(
+      model.Raw(), &detail::ModelItemVisitTrampoline<Note, ActionT, FilterT>,
+      &detail::ModelItemFilterTrampoline<Note, ActionT, FilterT>, &context);
+  if (context.exception) {
+    std::rethrow_exception(context.exception);
+  }
+  return result;
+}
+template <typename ActionFn>
+ErrorCode VisitNotes(const ModelHandle &model, ActionFn &&action) {
+  return VisitNotes(model, std::forward<ActionFn>(action),
+                     [](const Note &) { return static_cast<ErrorCode>(0); });
+}
+
+// Wraps ProProcstepVisit: visits the process steps of `solid`.
+template <typename ActionFn, typename FilterFn>
+ErrorCode VisitProcSteps(const ModelHandle &solid, ActionFn &&action,
+                          FilterFn &&filter) {
+  using ActionT = std::remove_reference_t<ActionFn>;
+  using FilterT = std::remove_reference_t<FilterFn>;
+  detail::ModelItemVisitContext<ProcStep, ActionT, FilterT> context{
+      action, filter, nullptr};
+  ErrorCode result = detail::ProcstepVisit(
+      solid.Raw(),
+      &detail::ModelItemVisitTrampoline<ProcStep, ActionT, FilterT>,
+      &detail::ModelItemFilterTrampoline<ProcStep, ActionT, FilterT>,
+      &context);
+  if (context.exception) {
+    std::rethrow_exception(context.exception);
+  }
+  return result;
+}
+template <typename ActionFn>
+ErrorCode VisitProcSteps(const ModelHandle &solid, ActionFn &&action) {
+  return VisitProcSteps(
+      solid, std::forward<ActionFn>(action),
+      [](const ProcStep &) { return static_cast<ErrorCode>(0); });
+}
+
+// Wraps ProSolidSimprepVisit: visits the simplified representations of
+// `solid`. The raw PTC function takes filter before action (see
+// detail::SolidSimprepVisit in ProtoolkitCompat.hpp, which already
+// reorders them back) — nothing special needed at this level.
+template <typename ActionFn, typename FilterFn>
+ErrorCode VisitSimpReps(const ModelHandle &solid, ActionFn &&action,
+                         FilterFn &&filter) {
+  using ActionT = std::remove_reference_t<ActionFn>;
+  using FilterT = std::remove_reference_t<FilterFn>;
+  detail::ModelItemVisitContext<SimpRep, ActionT, FilterT> context{
+      action, filter, nullptr};
+  ErrorCode result = detail::SolidSimprepVisit(
+      solid.Raw(),
+      &detail::ModelItemVisitTrampoline<SimpRep, ActionT, FilterT>,
+      &detail::ModelItemFilterTrampoline<SimpRep, ActionT, FilterT>,
+      &context);
+  if (context.exception) {
+    std::rethrow_exception(context.exception);
+  }
+  return result;
+}
+template <typename ActionFn>
+ErrorCode VisitSimpReps(const ModelHandle &solid, ActionFn &&action) {
+  return VisitSimpReps(
+      solid, std::forward<ActionFn>(action),
+      [](const SimpRep &) { return static_cast<ErrorCode>(0); });
+}
+
+// Wraps ProFeatureGeomitemVisit: visits the geometry items of kind
+// `item_type` (e.g. PRO_SURFACE, PRO_EDGE) owned by `feature`. Unlike the
+// four visit functions above, this one is scoped to a Feature rather than
+// a whole ModelHandle, and takes the extra `item_type` selector PTC's raw
+// call requires.
+template <typename ActionFn, typename FilterFn>
+ErrorCode VisitGeomitems(const Feature &feature, ObjectType item_type,
+                          ActionFn &&action, FilterFn &&filter) {
+  using ActionT = std::remove_reference_t<ActionFn>;
+  using FilterT = std::remove_reference_t<FilterFn>;
+  detail::ModelItemVisitContext<GeomItem, ActionT, FilterT> context{
+      action, filter, nullptr};
+  ErrorCode result = detail::FeatureGeomitemVisit(
+      const_cast<detail::RawModelItem *>(feature.Raw()), item_type,
+      &detail::ModelItemVisitTrampoline<GeomItem, ActionT, FilterT>,
+      &detail::ModelItemFilterTrampoline<GeomItem, ActionT, FilterT>,
+      &context);
+  if (context.exception) {
+    std::rethrow_exception(context.exception);
+  }
+  return result;
+}
+template <typename ActionFn>
+ErrorCode VisitGeomitems(const Feature &feature, ObjectType item_type,
+                          ActionFn &&action) {
+  return VisitGeomitems(
+      feature, item_type, std::forward<ActionFn>(action),
+      [](const GeomItem &) { return static_cast<ErrorCode>(0); });
 }
 
 // ---------------------------------------------------------------------------
@@ -288,37 +480,5 @@ inline std::optional<Feature> FindFeatureByName(const ModelHandle &solid,
   });
   return found;
 }
-
-// PTC gives `pro_model_item` one typedef name per kind of database
-// object; this wrapper mirrors that with one alias per name, all sharing
-// the same ModelItem implementation (see the class comment above) —
-// except Feature, which is a real derived class (see above) rather than
-// a bare alias, since it alone has a per-type method so far.
-using GeomItem = ModelItem;
-using ExtObj = ModelItem;
-using ProcStep = ModelItem;
-using SimpRep = ModelItem;
-using ExpldState = ModelItem;
-using Layer = ModelItem;
-using Dimension = ModelItem;
-using DtlNote = ModelItem;
-using DtlSymInst = ModelItem;
-using Gtol = ModelItem;
-using CompDisp = ModelItem;
-using DwgTable = ModelItem;
-using Note = ModelItem;
-using AnnotationElem = ModelItem;
-using Annotation = ModelItem;
-using AnnotationPlane = ModelItem;
-using Symbol = ModelItem;
-using SurfFinish = ModelItem;
-using MechItem = ModelItem;
-using MaterialItem = ModelItem;
-using CombState = ModelItem;
-using LayerState = ModelItem;
-using ApprnState = ModelItem;
-using SolidBody = ModelItem;
-using Ply = ModelItem;
-using Table = ModelItem;
 
 } // namespace creo

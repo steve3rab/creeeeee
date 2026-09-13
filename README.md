@@ -61,8 +61,13 @@ include/creo/
   Constants.hpp                    MaxAssemLevel, ValueUnused, ValueDefault
   ObjectType.hpp                   ObjectType, MdlType, Boolean
   ModelHandle.hpp                  ModelHandle
-  ModelItem.hpp                    ModelItem, Feature, VisitFeatures(),
-                                    and the rest of the aliases
+  ModelItem.hpp                    ModelItem, Feature, VisitFeatures() and
+                                    four more modelitem-shaped visit
+                                    functions, and the rest of the aliases
+  Geometry.hpp                     GeometryHandle<T>, VisitOpaque(): the
+                                    opaque-handle counterpart to
+                                    ModelItem's visit functions (Csys,
+                                    Axis, Quilt, Surface, Contour, Edge)
   Array.hpp                        Array<T>: RAII around ProArray
   Error.hpp                        ProToolkitError + CREO_CHECK macro
   ScopeGuard.hpp                   Generic RAII "run on scope exit"
@@ -80,10 +85,11 @@ srcAcopier/
   Constants.hpp,                   comments) to drop into a real
   ObjectType.hpp,                  ProTOOLKIT project (SDK + license
   ModelHandle.hpp,                 available): CREO_WRAPPER_HAS_REAL_SDK
-  ModelItem.hpp, Array.hpp,        is hardcoded to 1 there (no shim
-  Error.hpp, ScopeGuard.hpp,       mode, the real SDK is required to
-  ProtoolkitCompat.hpp,            build). Same file split as
-  Error.cpp                        include/creo/ above.
+  ModelItem.hpp, Geometry.hpp,     is hardcoded to 1 there (no shim
+  Array.hpp, Error.hpp,            mode, the real SDK is required to
+  ScopeGuard.hpp,                  build). Same file split as
+  ProtoolkitCompat.hpp,            include/creo/ above.
+  Error.cpp
   PropertyUtils.hpp                Flat copy of windows/PropertyUtils.hpp
                                     (same content, no comments) for
                                     dropping alongside the rest of this
@@ -634,6 +640,112 @@ code for exactly this "found what I was looking for, stop looking"
 situation (confirmed by `ProUtilFindFeatureByName`'s own use of it) —
 rather than needlessly checking every remaining feature's name once the
 answer is already known.
+
+#### VisitExpldStates() / VisitNotes() / VisitProcSteps() / VisitSimpReps() / VisitGeomitems()
+
+Five more visit functions confirmed from PTC's own `ProUtilVisit.c`
+sample utility (pasted verbatim by the user alongside `ProSolidFeatVisit`
+itself): `ProSolidExpldstateVisit`, `ProMdlNoteVisit`, `ProProcstepVisit`,
+`ProSolidSimprepVisit`, and `ProFeatureGeomitemVisit`. All five visit a
+`pro_model_item`-shaped object — exactly like `ProSolidFeatVisit` — so
+they share `VisitFeatures()`'s entire contract (return codes, the
+`PRO_TK_CONTINUE` filter convention, exception-safety) and are built on
+the same generic engine internally (`detail::ModelItemVisitContext<ItemT,
+...>`, parameterized on the visited item type):
+
+```cpp
+creo::VisitExpldStates(assembly, [](const creo::ExpldState &s, creo::ErrorCode) {
+  std::printf("exploded state id = %d\n", s.Id());
+  return static_cast<creo::ErrorCode>(0);
+});
+
+creo::VisitNotes(model, [](const creo::Note &note, creo::ErrorCode) { ... });
+creo::VisitProcSteps(solid, [](const creo::ProcStep &step, creo::ErrorCode) { ... });
+creo::VisitSimpReps(solid, [](const creo::SimpRep &rep, creo::ErrorCode) { ... });
+
+// Scoped to one Feature, not a whole ModelHandle -- and takes an extra
+// ObjectType selector (e.g. PRO_SURFACE, PRO_EDGE), unlike the other four.
+creo::VisitGeomitems(feature, creo::ObjectType::PRO_SURFACE,
+                      [](const creo::GeomItem &item, creo::ErrorCode) { ... });
+```
+
+Each has the same no-filter overload as `VisitFeatures()`. One raw-API
+quirk is hidden from callers entirely: `ProSolidSimprepVisit`'s real
+parameter order is `(solid, filter, action, app_data)` — filter *before*
+action, unlike every other visit function here — confirmed straight from
+`ProUtilVisit.c`. `detail::SolidSimprepVisit`
+(`detail/ProtoolkitCompat.hpp`) reorders the two arguments right at that
+one call site, so `creo::VisitSimpReps()` takes `(action, filter)` like
+everything else and needs no special case of its own.
+
+> **Caveat**: as with `ProSolidFeatVisit` above, none of these five raw
+> functions' exact declaring headers are independently confirmed —
+> `ProUtilVisit.c` proves they exist and how they are called, not which
+> header declares them. Their trampolines (`detail::SolidExpldstateVisit`,
+> `MdlNoteVisit`, `ProcstepVisit`, `SolidSimprepVisit`,
+> `FeatureGeomitemVisit`, all in `detail/ProtoolkitCompat.hpp`) rely on
+> whichever already-included PTC header happens to declare them; if none
+> does, the real-SDK build fails to compile right there, loudly.
+
+### Geometry: VisitOpaque() / GeometryHandle&lt;T&gt;
+
+`ProUtilVisit.c` also confirms a second family of visit functions for six
+more PTC types — Csys, Axis, Quilt, Surface, Contour, Edge —
+`ProSolidCsysVisit`, `ProSolidAxisVisit`, `ProSolidQuiltVisit`,
+`ProQuiltSurfaceVisit`, `ProSurfaceContourVisit`, `ProContourEdgeVisit`.
+Unlike `ModelItem` (a plain value struct visited by pointer), these six
+are **opaque pointer handles** passed to their action/filter callbacks
+**by value** — confirmed by the sample's own `(void*)&p_object` idiom,
+which only makes sense if the handle already fits in a pointer-sized
+value.
+
+This wrapper was never given (and does not guess) PTC's own declared type
+name for any of the six, or which header declares it — the same standard
+this project has applied everywhere else a shape was inferable from usage
+but a name was not (see the exclusions below). So instead of six
+functions bound to guessed type/header names, `include/creo/Geometry.hpp`
+provides the reusable machinery as a generic template that deduces
+everything it needs directly from the **real** raw PTC function you pass
+it:
+
+```cpp
+#include "creo/Geometry.hpp"
+
+// ProCsys, ProSolidCsysVisit: your project's own real PTC headers.
+creo::ErrorCode result = creo::VisitOpaque(
+    ::ProSolidCsysVisit, solid.Raw(),
+    [](ProCsys csys, ProError status) {
+      ...
+      return PRO_TK_NO_ERROR;
+    },
+    [](ProCsys csys) {
+      return some_condition(csys) ? PRO_TK_CONTINUE : PRO_TK_NO_ERROR;
+    });
+```
+
+`VisitOpaque()`'s first parameter is a raw function pointer matching the
+confirmed `(owner, action, filter, app_data)` shape (action taking the
+handle by value plus a status, filter taking just the handle); every
+other type it needs — the owner type, the handle type, the raw error
+code, `ProAppData` — is deduced from that pointer's actual declared
+signature via template argument deduction. Nothing here is a
+project-side guess: if a real function's signature does not match this
+shape, the call simply fails to compile, exactly like every other
+unconfirmed-shape guard in this wrapper. `filter`/`action` follow
+`VisitFeatures()`'s exact contract (`PRO_TK_CONTINUE` skips, anything
+else from `action` stops the visit), and a C++ exception thrown from
+either is caught and rethrown the same way, never unwinding through
+ProTOOLKIT's C stack frames.
+
+`GeometryHandle<RawHandleT>` is a thin, non-owning wrapper for
+application code that wants a typed handle instead of a bare pointer,
+built the same way — with your own real type:
+
+```cpp
+using Csys = creo::GeometryHandle<ProCsys>;   // your own real ProCsys
+Csys csys(raw_csys);
+if (csys) { /* IsValid() */ }
+```
 
 ### Array&lt;T&gt;
 
