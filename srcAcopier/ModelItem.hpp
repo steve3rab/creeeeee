@@ -31,6 +31,17 @@ public:
     return name;
   }
 
+  std::optional<Name> TryGetName() const {
+    Name name;
+    detail::ProErrorCode err = detail::ModelitemNameGet(
+        const_cast<detail::RawModelItem *>(&raw_), name.Raw());
+    if (err == static_cast<ErrorCode>(-4)) {
+      return std::nullopt;
+    }
+    CREO_CHECK(err);
+    return name;
+  }
+
   detail::RawModelItem *Raw() noexcept { return &raw_; }
   const detail::RawModelItem *Raw() const noexcept { return &raw_; }
 

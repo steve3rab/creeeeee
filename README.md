@@ -497,7 +497,48 @@ falls under "any other Creo Parametric name", while `ModelName`/
 both are ultimately "the name of a Pro-something". The method is named
 `GetName()`, not `Name()`: a member function named exactly like the
 `creo::Name` type it returns does not compile (it shadows the type
-within the class, including in its own return-type position).
+within the class, including in its own return-type position). It is
+declared in `<ProModelitem.h>` (confirmed from `ProModelitemNameGet`'s
+own reference page, pasted verbatim by the user), included explicitly in
+`detail/ProtoolkitCompat.hpp` rather than assumed to come in transitively
+through `ProObjects.h`.
+
+That same reference page documents `Type()` as valid only for a specific
+list of `ProType` values — `PRO_EDGE`, `PRO_SURFACE`, `PRO_FEATURE`,
+`PRO_CSYS`, `PRO_AXIS`, `PRO_POINT`, `PRO_QUILT`, `PRO_CURVE`,
+`PRO_LAYER`, `PRO_DIMENSION`, `PRO_REF_DIMENSION`, `PRO_NOTE`, `PRO_GTOL`,
+`PRO_SURF_FIN`, `PRO_SYMBOL_INSTANCE`, `PRO_SET_DATUM_TAG`,
+`PRO_SIMP_REP`, `PRO_EXPLD_STATE`, `PRO_ANNOTATION_ELEM`,
+`PRO_COMBINED_STATE` — any other type gets `PRO_TK_BAD_INPUTS` back
+(thrown here as a `ProToolkitError`, like any other `CREO_CHECK`
+failure). Worth noting: several of those (Edge, Surface, Csys, Axis,
+Point, Quilt, Curve) are the same PTC types confirmed elsewhere
+(`ProUtilVisit.c`, see "Geometry" above) as being visited through their
+own opaque-handle functions rather than as a `pro_model_item` — the two
+are not in conflict, PTC apparently lets a caller identify one by the
+same generic `(type, id, owner)` triple as any other database object for
+a lookup like this, independently of whatever specialized handle its own
+geometry APIs use elsewhere. This is not a reason to add a
+`Csys`/`Axis`/... alias to `ModelItem.hpp`: `ModelItem` already covers
+any `Type()`, and an alias reusing PTC's own opaque handle type's name
+here would collide with it.
+
+`GetName()` throws on `PRO_TK_E_NOT_FOUND` ("the specified item does not
+have a name", per that same page) exactly like any other failure.
+`TryGetName()` is the `std::optional`-returning alternative that treats
+that one specific code as "no name" rather than an error — same
+`Get()`/`TryGet()` split already established for `ModelHandle::GetCurrent()`/
+`TryGetCurrent()` (see "ModelHandle" above). Any other failure (including
+`PRO_TK_BAD_INPUTS` for a `Type()` outside the list above) still throws:
+an invalid item is a caller bug, not a "nothing there" outcome.
+
+```cpp
+if (std::optional<creo::Name> name = feat.TryGetName()) {
+  std::printf("name: %s\n", name->ToString().c_str());
+} else {
+  std::puts("this item has no name");
+}
+```
 
 Two `ModelItem` are comparable by equality — they designate the same
 database object if their type, id, and owning model all match, matching

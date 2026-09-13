@@ -53,10 +53,57 @@ public:
   // const_cast: ProModelitemNameGet takes a non-const `ProModelitem*` (a
   // pure "Get" function; this is a C API not being const-correct, not an
   // actual mutation of the item through that pointer).
+  //
+  // ProModelitemNameGet's own reference page (pasted verbatim by the
+  // user) documents `Type()` as only valid for a specific list of
+  // ProType values -- PRO_EDGE, PRO_SURFACE, PRO_FEATURE, PRO_CSYS,
+  // PRO_AXIS, PRO_POINT, PRO_QUILT, PRO_CURVE, PRO_LAYER, PRO_DIMENSION,
+  // PRO_REF_DIMENSION, PRO_NOTE, PRO_GTOL, PRO_SURF_FIN,
+  // PRO_SYMBOL_INSTANCE, PRO_SET_DATUM_TAG, PRO_SIMP_REP,
+  // PRO_EXPLD_STATE, PRO_ANNOTATION_ELEM, PRO_COMBINED_STATE -- any other
+  // type returns PRO_TK_BAD_INPUTS (thrown here as a ProToolkitError,
+  // like any other CREO_CHECK failure). Interesting in its own right:
+  // several of those (Edge, Surface, Csys, Axis, Point, Quilt, Curve) are
+  // the same PTC types confirmed elsewhere (ProUtilVisit.c, see
+  // creo/Geometry.hpp) as being visited through their own OPAQUE-HANDLE
+  // functions (ProSolidCsysVisit & co.) rather than as a `pro_model_item`
+  // -- this does not contradict that: PTC evidently also lets a caller
+  // identify one by the same generic (type, id, owner) triple as any
+  // other database object for a lookup like this, on top of whatever
+  // specialized handle its own geometry APIs use elsewhere. Not a reason
+  // to add a `Csys`/`Axis`/... alias here, though: this class already
+  // covers any `Type()`, aliased or not, and inventing an alias for the
+  // *name* of PTC's own opaque handle type would risk colliding with it.
+  //
+  // GetName() throws on PRO_TK_E_NOT_FOUND ("the specified item does not
+  // have a name", per the same reference page) exactly like any other
+  // failure; see TryGetName() below for a std::optional-returning
+  // alternative that treats that one specific code as "no name" rather
+  // than an error.
   Name GetName() const {
     Name name;
     CREO_CHECK(detail::ModelitemNameGet(
         const_cast<detail::RawModelItem *>(&raw_), name.Raw()));
+    return name;
+  }
+
+  // Same as GetName(), but returns std::nullopt instead of throwing when
+  // ProModelitemNameGet reports PRO_TK_E_NOT_FOUND ("the specified item
+  // does not have a name") -- a legitimate, documented outcome for some
+  // item types, not a failure worth an exception, matching the same
+  // Get()/TryGet() split already established for ModelHandle::GetCurrent()/
+  // TryGetCurrent() and GetActive()/TryGetActive() (ModelHandle.hpp).
+  // Any other failure (including PRO_TK_BAD_INPUTS for a `Type()` outside
+  // the list documented on GetName() above) still throws: an invalid
+  // item is a caller bug, not the same kind of "nothing there" outcome.
+  std::optional<Name> TryGetName() const {
+    Name name;
+    detail::ProErrorCode err = detail::ModelitemNameGet(
+        const_cast<detail::RawModelItem *>(&raw_), name.Raw());
+    if (err == static_cast<ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+      return std::nullopt;
+    }
+    CREO_CHECK(err);
     return name;
   }
 

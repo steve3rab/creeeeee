@@ -5,6 +5,7 @@
 #include <ProArray.h>
 #include <ProAssembly.h>
 #include <ProMdl.h>
+#include <ProModelitem.h>
 #include <ProObjects.h>
 #include <ProSizeConst.h>
 #include <ProToolkit.h>

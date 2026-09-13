@@ -34,10 +34,15 @@
 // header on the PTC side (its own include guard, only depending on
 // ProToolkit.h for PRO_BEGIN_C_DECLS/PRO_END_C_DECLS): nothing guarantees
 // it is included transitively by the headers below, so it is included
-// explicitly instead of relying on that.
+// explicitly instead of relying on that. ProModelitem.h is confirmed
+// (pasted verbatim by the user, from ProModelitemNameGet's own reference
+// page: "#include <ProModelitem.h>") as the real declaring header for
+// ProModelitemNameGet -- included explicitly for the same reason as
+// ProSizeConst.h, rather than assuming ProObjects.h pulls it in.
 #include <ProArray.h>
 #include <ProAssembly.h>
 #include <ProMdl.h>
+#include <ProModelitem.h>
 #include <ProObjects.h>
 #include <ProSizeConst.h>
 #include <ProToolkit.h>
