@@ -1,5 +1,5 @@
 #pragma once
-#include "creo/detail/protoolkit_compat.hpp"
+#include "creo/detail/ProtoolkitCompat.hpp"
 
 #include <stdexcept>
 #include <string>
@@ -9,7 +9,7 @@ namespace creo {
 
 // Native ProTOOLKIT error code (ProError), re-exposed as-is: the wrapper
 // does not reinvent this enum, it relies on the PTC SDK's own one when
-// available (see detail/protoolkit_compat.hpp).
+// available (see detail/ProtoolkitCompat.hpp).
 using ErrorCode = detail::ProErrorCode;
 
 // Exception thrown by the wrapper for every failing ProTOOLKIT call.

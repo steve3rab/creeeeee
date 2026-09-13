@@ -1,5 +1,5 @@
 #pragma once
-#include "creo/detail/protoolkit_compat.hpp"
+#include "creo/detail/ProtoolkitCompat.hpp"
 
 namespace creo {
 

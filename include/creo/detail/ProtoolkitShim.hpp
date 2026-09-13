@@ -12,7 +12,7 @@
 // PRO_VERSION_SIZE, PRO_MAX_ASSEM_LEVEL and PRO_FEATREF_KEY_SIZE. The
 // rest of this file only mimics the shape of the types (text buffers,
 // opaque handle): as soon as a real Creo 10 SDK is detected (see
-// creo/detail/protoolkit_compat.hpp and cmake/FindProToolkit.cmake), this
+// creo/detail/ProtoolkitCompat.hpp and cmake/FindProToolkit.cmake), this
 // file is no longer included and the real PTC headers take over
 // automatically.
 // -----------------------------------------------------------------------
@@ -72,7 +72,7 @@ constexpr int kValueDefault = -5;
 // coincide with false/true — many ProTOOLKIT functions take/return
 // precisely this type (not a C++ bool, which has no standardized binary
 // representation in C). The PTC SDK exposes both names ProBoolean/ProBool
-// for the same type. See creo::ToBool()/ToProBoolean() (types.hpp) to
+// for the same type. See creo::ToBool()/ToProBoolean() (Types.hpp) to
 // convert to/from a C++ bool without writing an explicit comparison on
 // every call.
 enum ProBooleans { PRO_B_FALSE = 0, PRO_B_TRUE = 1 };
@@ -192,7 +192,7 @@ using ProErr = ProError;
 // confirmed by the user from two independent PTC references, consistent
 // with ProMenufileName/ProMenubuttonName elsewhere in this file, which
 // already showed PTC does not always capitalize compound-word
-// boundaries), so that ModelHandle::Name() (model_handle.hpp) compiles
+// boundaries), so that ModelHandle::Name() (ModelHandle.hpp) compiles
 // in shim mode. Without a real Creo session, there is nothing meaningful
 // to return: a valid ModelHandle cannot exist outside the real SDK
 // anyway (no shim function ever produces a non-null ProMdl); so this
@@ -205,7 +205,7 @@ inline ProError ProMdlMdlnameGet(ProMdl model, wchar_t *name_out) {
 }
 
 // Reproduces the signature of ProMdlCurrentGet, for
-// ModelHandle::GetCurrent() (model_handle.hpp) to compile in shim mode.
+// ModelHandle::GetCurrent() (ModelHandle.hpp) to compile in shim mode.
 // There is never a "current model" without a real Creo session, so this
 // always fails too, for the same reason as the stub above.
 inline ProError ProMdlCurrentGet(ProMdl *p_mdl) {
@@ -586,7 +586,7 @@ enum ProType : int {
 // integer value as the corresponding ProType constant (e.g.
 // PRO_MDL_ASSEMBLY == PRO_ASSEMBLY) -- this is how PTC itself defines
 // it, not a coincidence this wrapper is relying on. See creo::MdlType
-// (object_type.hpp) for the C++ side.
+// (ObjectType.hpp) for the C++ side.
 enum ProMdlType : int {
   PRO_MDL_UNUSED = PRO_TYPE_UNUSED,
   PRO_MDL_ASSEMBLY = PRO_ASSEMBLY,
@@ -609,7 +609,7 @@ enum ProMdlType : int {
 };
 
 // Reproduces the signature of ProMdlTypeGet, for ModelHandle::Type()
-// (model_handle.hpp) to compile in shim mode. Honors the documented
+// (ModelHandle.hpp) to compile in shim mode. Honors the documented
 // contract given by the user precisely: "if the function fails, [the
 // out-param] is set to PRO_TYPE_UNUSED" -- for every failure path here,
 // not just some of them.
@@ -628,7 +628,7 @@ inline ProError ProMdlTypeGet(ProMdl model, ProMdlType *p_type) {
 // PTC gives this exact same 3-field struct roughly thirty different
 // typedef names — ProGeomitem, ProFeature, ProDimension, ProNote,
 // ProLayer, ... — one per kind of database object, even though they are
-// bit-for-bit identical at the C level. See creo::ModelItem (types.hpp)
+// bit-for-bit identical at the C level. See creo::ModelItem (Types.hpp)
 // and its aliases (GeomItem, Feature, Dimension, ...) for the C++ side of
 // this. Provided by the user from the real header.
 struct ProModelitem {
@@ -665,7 +665,7 @@ using ProPly = ProModelitem;
 using ProTable = ProModelitem;
 
 // Reproduces the signature of ProModelitemNameGet, for
-// creo::ModelItem::Name() (types.hpp) to compile in shim mode. Unlike
+// creo::ModelItem::Name() (Types.hpp) to compile in shim mode. Unlike
 // Type()/Id()/Owner() (plain field reads, valid on any ProModelitem value
 // including one built by hand in a test), a name lookup genuinely needs a
 // real model database: this stub always fails rather than inventing a
@@ -679,12 +679,12 @@ inline ProError ProModelitemNameGet(ProModelitem *p_handle,
 }
 
 // Reproduces the signature of ProFeatureRegenerate, for
-// creo::Feature::Regenerate() (types.hpp) to compile in shim mode. Signature
+// creo::Feature::Regenerate() (Types.hpp) to compile in shim mode. Signature
 // as given by the user (a description of the API's usual shape, not a
 // pasted header), not independently verified: `solid` is taken as a plain
 // ProMdl here (the user's own description treats ProSolid/ProMdl as
 // interchangeable) — if a real SDK's ProSolid turns out to be a genuinely
-// distinct type, the real-SDK branch in protoolkit_compat.hpp will fail to
+// distinct type, the real-SDK branch in ProtoolkitCompat.hpp will fail to
 // compile there, loudly, rather than silently doing the wrong thing. Like
 // the other "needs a real session" stubs above, this always fails.
 inline ProError ProFeatureRegenerate(ProMdl solid, ProFeature *feature) {
@@ -699,7 +699,7 @@ inline ProError ProFeatureRegenerate(ProMdl solid, ProFeature *feature) {
 // opaque `void*` on the API side. Unlike ProMdl/ProError above (simple
 // substitute types, never algorithmically exercised in shim mode),
 // ProArray has real behavior (allocation, growth, insertion/removal)
-// that creo::Array<T> (see creo/array.hpp) actually exercises: this
+// that creo::Array<T> (see creo/Array.hpp) actually exercises: this
 // reproduction must therefore be a functional implementation, not just a
 // shape declaration.
 //
@@ -880,7 +880,7 @@ inline ProError ProArrayObjectRemove(ProArray *p_array, int index,
 }
 
 // Reproduces the signature of ProSessionMdlList (ProAssembly.h), for
-// ModelHandle::List() (model_handle.hpp) to compile in shim mode.
+// ModelHandle::List() (ModelHandle.hpp) to compile in shim mode.
 // Unlike the ProMdl*-returning stubs above, this one is genuinely
 // functional rather than an always-failing stub: ProArray itself is
 // fully implemented in this shim (see above), and "there are zero

@@ -1,5 +1,5 @@
 #pragma once
-#include "creo/detail/protoolkit_compat.hpp"
+#include "creo/detail/ProtoolkitCompat.hpp"
 
 // PropertyUtils (a standalone Win32 utility, no creo:: namespace, no
 // other dependency on this wrapper) is the single implementation of
@@ -368,7 +368,7 @@ using Macro = FixedWString<detail::kMacroSize>;
 // Composite types (full file names)
 // ---------------------------------------------------------------------------
 // PTC builds these sizes by adding up the atomic sizes above (see
-// detail/protoolkit_compat.hpp for the formulas): they cover a full file
+// detail/ProtoolkitCompat.hpp for the formulas): they cover a full file
 // name "name.ext.#" or a family table instance "instance[generic]".
 
 // Corresponds to `ProMdlFileName` (PRO_FILE_MDLNAME_SIZE): the full file

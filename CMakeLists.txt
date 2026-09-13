@@ -1,12 +1,12 @@
 # C++17 wrapper for ProTOOLKIT (Creo Parametric 10.0).
 #
 # Always compiles (with or without the PTC SDK installed, see
-# include/creo/detail/protoolkit_compat.hpp). To link against a real
+# include/creo/detail/ProtoolkitCompat.hpp). To link against a real
 # Creo 10 session, set CREO_TOOLKIT_ROOT (and CREO_TOOLKIT_ARCH if
 # needed): see cmake/FindProToolkit.cmake and the README for details.
 #
 # Requires Windows (natively or cross-compiled with MinGW-w64): the
-# final target for this project is Windows only. include/creo/text.hpp
+# final target for this project is Windows only. include/creo/Text.hpp
 # calls PropertyUtils (windows/PropertyUtils.hpp) for its UTF-8
 # conversions, which itself calls the native Win32 API
 # (WideCharToMultiByte/MultiByteToWideChar) directly, with no portable
@@ -18,7 +18,7 @@ project(creo_wrapper LANGUAGES CXX)
 
 if(NOT WIN32)
   message(FATAL_ERROR
-    "This wrapper requires Windows: include/creo/text.hpp calls "
+    "This wrapper requires Windows: include/creo/Text.hpp calls "
     "PropertyUtils (windows/PropertyUtils.hpp) for its UTF-8 "
     "conversions, which itself calls the native Win32 API "
     "(WideCharToMultiByte/MultiByteToWideChar) directly, with no portable "
@@ -34,7 +34,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(ProToolkit)
 
 add_library(creo_wrapper STATIC
-  src/error.cpp
+  src/Error.cpp
 )
 target_include_directories(creo_wrapper PUBLIC
   "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -59,9 +59,10 @@ if(CREO_WRAPPER_BUILD_EXAMPLES)
 endif()
 
 # General-purpose Win32 utility (env var / path helpers), header-only, not
-# specific to ProTOOLKIT: does not depend on creo_wrapper, and vice versa.
-# Windows-only regardless of creo_wrapper's own portability: it reads
-# environment variables via GetEnvironmentVariableW.
+# specific to ProTOOLKIT: has no dependency on creo_wrapper (the reverse
+# is not true -- creo_wrapper's Text.hpp calls into PropertyUtils for its
+# own UTF-8 conversions). Windows-only for its own separate reason: it
+# reads environment variables via GetEnvironmentVariableW.
 if(WIN32)
   add_library(property_utils INTERFACE)
   target_include_directories(property_utils INTERFACE

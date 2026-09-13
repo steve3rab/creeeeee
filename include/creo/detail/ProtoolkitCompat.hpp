@@ -8,7 +8,7 @@
 //      the PTC headers are included directly and their types are
 //      re-exposed as-is. This is the mode to use for any build meant to
 //      run inside a Creo session.
-//   2) SDK absent: falls back to the minimal shim (protoolkit_shim.hpp)
+//   2) SDK absent: falls back to the minimal shim (ProtoolkitShim.hpp)
 //      so the wrapper can compile and be tested away from a Creo
 //      workstation.
 //
@@ -42,7 +42,7 @@
 #include <ProSizeConst.h>
 #include <ProToolkit.h>
 #else
-#include "creo/detail/protoolkit_shim.hpp"
+#include "creo/detail/ProtoolkitShim.hpp"
 #endif
 
 namespace creo::detail {
@@ -61,12 +61,12 @@ using RawModelItem = ::ProModelitem;
 using RawMdlType = ::ProMdlType;
 
 // Trampolines to the real ProArray functions: creo::Array<T> (see
-// creo/array.hpp) calls these aliases, never ::ProArrayXxx nor
+// creo/Array.hpp) calls these aliases, never ::ProArrayXxx nor
 // shim::ProArrayXxx directly, to stay mode-independent. Array<T> only
 // uses ProArray as a raw memory provider (Alloc/Free) — not its native
 // shifting/resizing functions, which move elements by raw memory copy
 // and would break any T that is not trivially copyable; see the comment
-// at the top of array.hpp. SizeGet is still needed for Adopt().
+// at the top of Array.hpp. SizeGet is still needed for Adopt().
 // MaxCountGet is still exposed as a standalone utility
 // (creo::MaxArrayCount<T>()).
 inline ProErrorCode ArrayAlloc(int n_objs, int obj_size,
@@ -84,33 +84,33 @@ inline ProErrorCode ArrayMaxCountGet(int obj_size, int *max_num_objs) {
 }
 
 // Trampoline to ProMdlMdlnameGet (see ModelHandle::Name() in
-// model_handle.hpp), which replaces the now-deprecated ProMdlNameGet in
+// ModelHandle.hpp), which replaces the now-deprecated ProMdlNameGet in
 // Creo 10. Note the lowercase "n" in "Mdlname": confirmed by the user
 // from two independent PTC references, not a typo (see
-// protoolkit_shim.hpp for the fuller rationale).
+// ProtoolkitShim.hpp for the fuller rationale).
 inline ProErrorCode MdlMdlNameGet(RawMdl model, wchar_t *name_out) {
   return ::ProMdlMdlnameGet(model, name_out);
 }
 
 // Trampoline to ProMdlCurrentGet (see ModelHandle::GetCurrent() in
-// model_handle.hpp).
+// ModelHandle.hpp).
 inline ProErrorCode MdlCurrentGet(RawMdl *p_mdl) {
   return ::ProMdlCurrentGet(p_mdl);
 }
 
 // Trampoline to ProMdlTypeGet (see ModelHandle::Type() in
-// model_handle.hpp).
+// ModelHandle.hpp).
 inline ProErrorCode MdlTypeGet(RawMdl model, RawMdlType *p_type) {
   return ::ProMdlTypeGet(model, p_type);
 }
 
-// Trampoline to ProModelitemNameGet (see ModelItem::Name() in types.hpp).
+// Trampoline to ProModelitemNameGet (see ModelItem::Name() in Types.hpp).
 inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
   return ::ProModelitemNameGet(item, name_out);
 }
 
 // Trampoline to ProFeatureRegenerate (see Feature::Regenerate() in
-// model_item.hpp). `solid` is passed as a RawMdl: this assumes ProSolid
+// ModelItem.hpp). `solid` is passed as a RawMdl: this assumes ProSolid
 // is interchangeable with ProMdl (as described by the user; not verified
 // against a real header) — if the real SDK's ProSolid is a genuinely
 // distinct, incompatible type, this line is where the build will fail to
@@ -121,7 +121,7 @@ inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
 
 // Trampolines below are to ProAssembly.h functions (see the
 // ModelHandle methods of the same name, minus "Mdl"/"Session", in
-// model_handle.hpp).
+// ModelHandle.hpp).
 inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
   return ::ProMdlActiveGet(p_mdl);
 }
@@ -162,7 +162,7 @@ inline constexpr int kMacroSize = PRO_MACRO_SIZE;
 inline constexpr ProErrorCode kNoError = PRO_TK_NO_ERROR;
 
 // "Value not used" / "default value" sentinels — see
-// creo::ValueUnused/ValueDefault in types.hpp.
+// creo::ValueUnused/ValueDefault in Types.hpp.
 inline constexpr int kValueUnused = PRO_VALUE_UNUSED;
 inline constexpr int kValueDefault = PRO_VALUE_DEFAULT;
 
@@ -171,7 +171,7 @@ inline constexpr RawBoolean kBooleanTrue = PRO_B_TRUE;
 
 #else
 
-// Aliases to the substitute shim (see protoolkit_shim.hpp).
+// Aliases to the substitute shim (see ProtoolkitShim.hpp).
 using ProErrorCode = shim::ProError;
 using RawMdl = shim::ProMdl;
 using RawObjectType = shim::ProType;

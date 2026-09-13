@@ -1,9 +1,9 @@
 #pragma once
-#include "array.hpp"
-#include "error.hpp"
-#include "object_type.hpp"
-#include "protoolkit_compat.hpp"
-#include "text.hpp"
+#include "Array.hpp"
+#include "Error.hpp"
+#include "ObjectType.hpp"
+#include "ProtoolkitCompat.hpp"
+#include "Text.hpp"
 
 #include <stdexcept>
 

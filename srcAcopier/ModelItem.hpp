@@ -1,9 +1,9 @@
 #pragma once
-#include "error.hpp"
-#include "model_handle.hpp"
-#include "object_type.hpp"
-#include "protoolkit_compat.hpp"
-#include "text.hpp"
+#include "Error.hpp"
+#include "ModelHandle.hpp"
+#include "ObjectType.hpp"
+#include "ProtoolkitCompat.hpp"
+#include "Text.hpp"
 
 namespace creo {
 

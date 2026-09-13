@@ -1,4 +1,4 @@
-#include "error.hpp"
+#include "Error.hpp"
 
 #include <string>
 #include <string_view>

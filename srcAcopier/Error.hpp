@@ -1,5 +1,5 @@
 #pragma once
-#include "protoolkit_compat.hpp"
+#include "ProtoolkitCompat.hpp"
 
 #include <stdexcept>
 #include <string>

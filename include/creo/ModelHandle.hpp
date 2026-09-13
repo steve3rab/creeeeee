@@ -1,9 +1,9 @@
 #pragma once
-#include "creo/array.hpp"
-#include "creo/detail/protoolkit_compat.hpp"
-#include "creo/error.hpp"
-#include "creo/object_type.hpp"
-#include "creo/text.hpp"
+#include "creo/Array.hpp"
+#include "creo/detail/ProtoolkitCompat.hpp"
+#include "creo/Error.hpp"
+#include "creo/ObjectType.hpp"
+#include "creo/Text.hpp"
 
 #include <stdexcept>
 
@@ -96,7 +96,7 @@ public:
 
   // The model's name (ProMdlMdlnameGet, which replaces the now-deprecated
   // ProMdlNameGet in Creo 10 -- note the lowercase "n" in "Mdlname", see
-  // the note on this trampoline in detail/protoolkit_compat.hpp).
+  // the note on this trampoline in detail/ProtoolkitCompat.hpp).
   // Convenience method: avoids rewriting the CREO_CHECK + ModelName +
   // .Raw() combo every time, already shown in examples/hello_creo.cpp.
   // Throws std::logic_error if the handle is invalid (null), before even

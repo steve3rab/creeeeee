@@ -24,12 +24,12 @@ added over time.
 ### Important prerequisites
 
 **Platform: Windows only.** The final target for this project is
-Windows, full stop — `include/creo/text.hpp` calls
+Windows, full stop — `include/creo/Text.hpp` calls
 `PropertyUtils::stringToWideString`/`wideStringToString`
 (`windows/PropertyUtils.hpp`, see "PropertyUtils" below) for its UTF-8
 conversions, which themselves call the native Win32 API
 (`WideCharToMultiByte`/`MultiByteToWideChar`) directly, with no portable
-fallback; `text.hpp` (therefore nearly every other header) pulls this in
+fallback; `Text.hpp` (therefore nearly every other header) pulls this in
 transitively, so `creo_wrapper` now depends on `PropertyUtils`.
 `CMakeLists.txt` fails the configure step with a clear message if
 `WIN32` is not set. Build natively on Windows, or cross-compile with a
@@ -45,7 +45,7 @@ need a Creo Parametric 10.0 installation with the ProTOOLKIT SDK.
 
 Without this SDK, the project still builds: `include/creo/detail/`
 automatically falls back to a "shim" mode (substitute types, see the
-comments in `protoolkit_compat.hpp` and `protoolkit_shim.hpp`) which lets
+comments in `ProtoolkitCompat.hpp` and `ProtoolkitShim.hpp`) which lets
 you develop and test the wrapper's logic away from a Creo workstation —
 on Windows (or via MinGW-w64) either way, per the platform note above. An
 executable built in this mode obviously cannot drive a real Creo session.
@@ -54,47 +54,47 @@ executable built in this mode obviously cannot drive a real Creo session.
 
 ```
 include/creo/
-  types.hpp                       Umbrella header: includes the five below
-  text.hpp                        FixedWString/FixedCharString + all text
-                                   aliases; UTF-8 conversions call
-                                   PropertyUtils (windows/, see below)
-  constants.hpp                   MaxAssemLevel, ValueUnused, ValueDefault
-  object_type.hpp                 ObjectType, MdlType, Boolean
-  model_handle.hpp                ModelHandle
-  model_item.hpp                  ModelItem, Feature, and the rest of the aliases
-  array.hpp                       Array<T>: RAII around ProArray
-  error.hpp                       ProToolkitError + CREO_CHECK macro
-  detail/protoolkit_compat.hpp    Real SDK / shim switch
-  detail/protoolkit_shim.hpp      Substitute types (no SDK)
+  Types.hpp                        Umbrella header: includes the five below
+  Text.hpp                         FixedWString/FixedCharString + all text
+                                    aliases; UTF-8 conversions call
+                                    PropertyUtils (windows/, see below)
+  Constants.hpp                    MaxAssemLevel, ValueUnused, ValueDefault
+  ObjectType.hpp                   ObjectType, MdlType, Boolean
+  ModelHandle.hpp                  ModelHandle
+  ModelItem.hpp                    ModelItem, Feature, and the rest of the aliases
+  Array.hpp                        Array<T>: RAII around ProArray
+  Error.hpp                        ProToolkitError + CREO_CHECK macro
+  detail/ProtoolkitCompat.hpp      Real SDK / shim switch
+  detail/ProtoolkitShim.hpp        Substitute types (no SDK)
 src/
-  error.cpp
+  Error.cpp
 examples/
-  hello_creo.cpp                  Tour of types/errors/Array + active model name
+  hello_creo.cpp                   Tour of types/errors/Array + active model name
 cmake/
-  FindProToolkit.cmake            Locates the installed ProTOOLKIT SDK
+  FindProToolkit.cmake             Locates the installed ProTOOLKIT SDK
 srcAcopier/
-  types.hpp, text.hpp,            Flat version (no subfolders, no
-  constants.hpp,                  comments) to drop into a real
-  object_type.hpp,                ProTOOLKIT project (SDK + license
-  model_handle.hpp,                available): CREO_WRAPPER_HAS_REAL_SDK
-  model_item.hpp, array.hpp,      is hardcoded to 1 there (no shim
-  error.hpp,                      mode, the real SDK is required to
-  protoolkit_compat.hpp,          build). Same file split as
-  error.cpp                       include/creo/ above.
-  PropertyUtils.hpp               Flat copy of windows/PropertyUtils.hpp
-                                   (same content, no comments) for
-                                   dropping alongside the rest of this
-                                   bundle into a real project.
+  Types.hpp, Text.hpp,             Flat version (no subfolders, no
+  Constants.hpp,                   comments) to drop into a real
+  ObjectType.hpp,                  ProTOOLKIT project (SDK + license
+  ModelHandle.hpp,                 available): CREO_WRAPPER_HAS_REAL_SDK
+  ModelItem.hpp, Array.hpp,        is hardcoded to 1 there (no shim
+  Error.hpp,                       mode, the real SDK is required to
+  ProtoolkitCompat.hpp,            build). Same file split as
+  Error.cpp                        include/creo/ above.
+  PropertyUtils.hpp                Flat copy of windows/PropertyUtils.hpp
+                                    (same content, no comments) for
+                                    dropping alongside the rest of this
+                                    bundle into a real project.
 windows/
-  PropertyUtils.hpp               Standalone, header-only Win32 utility
-                                   (unrelated to ProTOOLKIT/creo::):
-                                   UTF-8 <-> wide string conversions and
-                                   environment variable / path helpers.
+  PropertyUtils.hpp                Standalone, header-only Win32 utility
+                                    (unrelated to ProTOOLKIT/creo::):
+                                    UTF-8 <-> wide string conversions and
+                                    environment variable / path helpers.
 ```
 
-Existing code that does `#include "creo/types.hpp"` keeps working exactly
-as before: it is now a thin umbrella pulling in `text.hpp`/
-`constants.hpp`/`object_type.hpp`/`model_handle.hpp`/`model_item.hpp`.
+Existing code that does `#include "creo/Types.hpp"` keeps working exactly
+as before: it is now a thin umbrella pulling in `Text.hpp`/
+`Constants.hpp`/`ObjectType.hpp`/`ModelHandle.hpp`/`ModelItem.hpp`.
 New code may include only the specific header(s) it needs instead — this
 split is a pure reorganization for cohesion (each header covers one
 concern), it changes no type, name, or behavior.
@@ -132,8 +132,8 @@ cmake -S . -B build && cmake --build build
 Excerpt of the part that requires a real Creo session:
 
 ```cpp
-#include "creo/error.hpp"
-#include "creo/types.hpp"
+#include "creo/Error.hpp"
+#include "creo/Types.hpp"
 
 // GetCurrent() wraps CREO_CHECK + ProMdlCurrentGet (see "ModelHandle"
 // below) and throws a ProToolkitError if there is no current model.
@@ -200,8 +200,8 @@ says which, it is a PTC documentation convention. The wrapper is used the
 same way in both cases, only the way the object is constructed changes:
 
 ```cpp
-#include "creo/error.hpp"
-#include "creo/types.hpp"
+#include "creo/Error.hpp"
+#include "creo/Types.hpp"
 
 // --- Set: the buffer is already filled before the call (input) ---
 creo::Name option("pro_line_font");
@@ -274,7 +274,7 @@ if (v.substr(v.size() - 4) == L".prt") { /* ... */ }
 `Path` also interfaces with `std::filesystem::path`:
 
 ```cpp
-#include "creo/types.hpp"
+#include "creo/Types.hpp"
 
 std::filesystem::path fs = creo::ToFilesystemPath(path);
 creo::Path p = creo::PathFromFilesystem(fs / "subdirectory" / "part.prt");
@@ -497,7 +497,7 @@ feat.Regenerate(feat.Owner());  // CREO_CHECK(ProFeatureRegenerate(...))
 > introducing a separate `Solid` type. If a real SDK's `ProSolid` turns
 > out to be a distinct, incompatible type, the real-SDK build will fail
 > to compile right at this trampoline (`detail::FeatureRegenerate` in
-> `detail/protoolkit_compat.hpp`) — loudly, not silently wrong — and the
+> `detail/ProtoolkitCompat.hpp`) — loudly, not silently wrong — and the
 > fix is local to that one line.
 
 Only `Feature` has been promoted to a real class so far, on the strength
@@ -509,7 +509,7 @@ actual per-type behavior, was considered and deliberately deferred.
 
 ### Array&lt;T&gt;
 
-`creo::Array<T>` (`include/creo/array.hpp`) wraps `ProArray`
+`creo::Array<T>` (`include/creo/Array.hpp`) wraps `ProArray`
 (`ProArray.h`): ProTOOLKIT's generic dynamic array. Unlike `ModelHandle`
 (non-owning — Creo manages a model's lifetime), a `ProArray` is
 explicitly allocated/freed by the caller: `Array<T>` therefore takes full
@@ -517,7 +517,7 @@ RAII ownership of it (allocates on construction, frees in the
 destructor).
 
 ```cpp
-#include "creo/array.hpp"
+#include "creo/Array.hpp"
 
 creo::Array<int> values(0, 8); // empty, grows in blocks of 8 elements
 values.Append(10);
@@ -597,10 +597,10 @@ since `PRO_VALUE_UNUSED` had not been provided yet and its value was not
 to be guessed, but has since been confirmed as -1 (see `ValueUnused`
 above).
 
-### Available types (`include/creo/types.hpp`)
+### Available types (`include/creo/Types.hpp`)
 
 Two families of fixed-size text buffers, depending on what PTC uses on
-the C side (see `detail/protoolkit_compat.hpp`/`protoolkit_shim.hpp` for
+the C side (see `detail/ProtoolkitCompat.hpp`/`ProtoolkitShim.hpp` for
 the details of the `PRO_*_SIZE` constants):
 
 **Wide buffers (`wchar_t[N]`, `FixedWString<N>` template)** — most
@@ -662,7 +662,7 @@ that exists alongside the ProTOOLKIT wrapper for applications that
 consume it (e.g. locating a Creo installation via environment
 variables), not as part of the wrapper itself: `PropertyUtils` has no
 dependency on `creo_wrapper`. The reverse is no longer true, though —
-`creo_wrapper`'s `text.hpp` calls into `PropertyUtils` for its own UTF-8
+`creo_wrapper`'s `Text.hpp` calls into `PropertyUtils` for its own UTF-8
 conversions (see "std::string / std::wstring conversions" above), so
 the dependency now runs one way: `creo_wrapper` -> `PropertyUtils`. Like
 `creo_wrapper`, it is Windows-only, but for its own separate reason too:
@@ -683,7 +683,7 @@ The UTF-8/wide conversions go through the native Win32 API
 (`MultiByteToWideChar`/`WideCharToMultiByte`, `CP_UTF8`) with
 `MB_ERR_INVALID_CHARS`/`WC_ERR_INVALID_CHARS` set, so malformed input
 throws rather than being silently patched up with `U+FFFD` — this is
-now also `text.hpp`'s own behavior on malformed UTF-8, since it calls
+now also `Text.hpp`'s own behavior on malformed UTF-8, since it calls
 these same functions directly rather than keeping a separate,
 near-identical conversion of its own.
 

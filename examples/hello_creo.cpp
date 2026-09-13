@@ -35,9 +35,9 @@
 // the first orientation used): creo::ToString() is enough to print
 // everything, including the content of a wide buffer like ProName.
 
-#include "creo/array.hpp"
-#include "creo/error.hpp"
-#include "creo/types.hpp"
+#include "creo/Array.hpp"
+#include "creo/Error.hpp"
+#include "creo/Types.hpp"
 
 #include <cstdio>
 #include <filesystem>
