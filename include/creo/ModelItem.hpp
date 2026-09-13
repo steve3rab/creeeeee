@@ -5,6 +5,10 @@
 #include "creo/ObjectType.hpp"
 #include "creo/Text.hpp"
 
+#include <exception>
+#include <type_traits>
+#include <utility>
+
 namespace creo {
 
 // ---------------------------------------------------------------------------
@@ -102,6 +106,122 @@ public:
         solid.Raw(), const_cast<detail::RawModelItem *>(Raw())));
   }
 };
+
+// ---------------------------------------------------------------------------
+// VisitFeatures(): lambda-friendly wrapper around ProSolidFeatVisit
+// ---------------------------------------------------------------------------
+// PTC's "visit function" pattern (per its own "Visit Functions"
+// documentation) is a pair of raw C callbacks — an "action" called once
+// per item, and an optional "filter" called first to decide whether to
+// call the action at all — communicating through a `ProAppData` (void*)
+// the caller must thread through by hand. A raw C function pointer
+// cannot capture state, so wrapping this by hand for every call site
+// means routing everything through that void* yourself. VisitFeatures()
+// does that once: pass ordinary lambdas (captures included), it takes
+// care of the ProAppData plumbing.
+namespace detail {
+
+// Holds the two user callables plus a slot for a C++ exception that
+// escaped one of them mid-visit: ProTOOLKIT's C stack frames are not
+// exception-aware, so an exception must never unwind through them (that
+// is undefined behavior) — it is stashed here instead, and rethrown by
+// VisitFeatures() once ProSolidFeatVisit itself has returned.
+template <typename ActionFn, typename FilterFn> struct FeatureVisitContext {
+  ActionFn &action;
+  FilterFn &filter;
+  std::exception_ptr exception;
+};
+
+// Matches ProFeatureVisitAction's signature exactly (RawModelItem is
+// ProFeature; ProErrorCode is ProError; RawAppData is ProAppData).
+template <typename ActionFn, typename FilterFn>
+ProErrorCode FeatureVisitTrampoline(RawModelItem *feature, ProErrorCode status,
+                                     RawAppData app_data) noexcept {
+  auto *context =
+      static_cast<FeatureVisitContext<ActionFn, FilterFn> *>(app_data);
+  if (context->exception) {
+    // The filter already failed for this item (see below): PTC's own
+    // control flow leaves no way to skip straight to termination from
+    // there, so this call was unavoidable — do not also run the user's
+    // action, just propagate the stop.
+    return static_cast<ProErrorCode>(-1); // PRO_TK_GENERAL_ERROR
+  }
+  try {
+    return context->action(Feature(*feature), status);
+  } catch (...) {
+    context->exception = std::current_exception();
+    return static_cast<ProErrorCode>(-1); // PRO_TK_GENERAL_ERROR
+  }
+}
+
+// Matches ProFeatureFilterAction's signature exactly.
+template <typename ActionFn, typename FilterFn>
+ProErrorCode FeatureFilterTrampoline(RawModelItem *feature,
+                                      RawAppData app_data) noexcept {
+  auto *context =
+      static_cast<FeatureVisitContext<ActionFn, FilterFn> *>(app_data);
+  try {
+    return context->filter(Feature(*feature));
+  } catch (...) {
+    context->exception = std::current_exception();
+    // Anything other than PRO_TK_CONTINUE calls the action next (PTC's
+    // own contract): the action trampoline above checks `exception` and
+    // stops immediately without invoking the user's action for it.
+    return static_cast<ProErrorCode>(-1); // PRO_TK_GENERAL_ERROR
+  }
+}
+
+} // namespace detail
+
+// `action(Feature, ErrorCode status) -> ErrorCode`: called once per
+// visited feature, `status` being whatever `filter` returned for it
+// (PRO_TK_NO_ERROR if no filter was given). Same return contract as the
+// raw ProFeatureVisitAction: PRO_TK_NO_ERROR continues visiting; any
+// other value stops the visit and becomes VisitFeatures()'s own return
+// value.
+//
+// `filter(Feature) -> ErrorCode`: called before `action` for each
+// feature. Returning `PRO_TK_CONTINUE` (-7) skips the item (`action` is
+// not called for it); any other value calls `action` with that value as
+// `status`.
+//
+// Returns the raw code PTC's own documentation assigns to
+// ProSolidFeatVisit: PRO_TK_NO_ERROR (every feature visited normally),
+// PRO_TK_E_NOT_FOUND (no feature exists on `solid`), or whatever `action`
+// returned to stop early. Deliberately not thrown as a ProToolkitError,
+// unlike most of this wrapper: an empty result or an early stop is often
+// exactly what the caller's own action/filter intended, not a failure —
+// inspect the returned code yourself.
+//
+// A C++ exception thrown from `action` or `filter` is never let to
+// unwind through ProTOOLKIT's C stack frames (see the trampolines
+// above): it is rethrown here once control is back on the C++ side, in
+// place of returning a code at all.
+template <typename ActionFn, typename FilterFn>
+ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action,
+                         FilterFn &&filter) {
+  using ActionT = std::remove_reference_t<ActionFn>;
+  using FilterT = std::remove_reference_t<FilterFn>;
+  detail::FeatureVisitContext<ActionT, FilterT> context{action, filter,
+                                                          nullptr};
+  ErrorCode result = detail::SolidFeatVisit(
+      solid.Raw(), &detail::FeatureVisitTrampoline<ActionT, FilterT>,
+      &detail::FeatureFilterTrampoline<ActionT, FilterT>, &context);
+  if (context.exception) {
+    std::rethrow_exception(context.exception);
+  }
+  return result;
+}
+
+// Overload with no filter: `action` is called for every feature, with
+// status always PRO_TK_NO_ERROR (no filter ran to produce anything
+// else).
+template <typename ActionFn>
+ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action) {
+  return VisitFeatures(
+      solid, std::forward<ActionFn>(action),
+      [](const Feature &) { return static_cast<ErrorCode>(0); }); // PRO_TK_NO_ERROR
+}
 
 // PTC gives `pro_model_item` one typedef name per kind of database
 // object; this wrapper mirrors that with one alias per name, all sharing

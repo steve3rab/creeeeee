@@ -61,7 +61,8 @@ include/creo/
   Constants.hpp                    MaxAssemLevel, ValueUnused, ValueDefault
   ObjectType.hpp                   ObjectType, MdlType, Boolean
   ModelHandle.hpp                  ModelHandle
-  ModelItem.hpp                    ModelItem, Feature, and the rest of the aliases
+  ModelItem.hpp                    ModelItem, Feature, VisitFeatures(),
+                                    and the rest of the aliases
   Array.hpp                        Array<T>: RAII around ProArray
   Error.hpp                        ProToolkitError + CREO_CHECK macro
   ScopeGuard.hpp                   Generic RAII "run on scope exit"
@@ -532,6 +533,66 @@ of this one concrete per-type operation. The other 26 aliases
 `ModelItem` until a similarly concrete need for each shows up — turning
 all of them into distinct classes speculatively, before any of them has
 actual per-type behavior, was considered and deliberately deferred.
+
+#### VisitFeatures()
+
+PTC's "visit function" pattern (per its own "Visit Functions"
+documentation, pasted verbatim by the user) is a pair of raw C
+callbacks — an "action" called once per item, and an optional "filter"
+called first to decide whether to call the action at all — communicating
+through a `ProAppData` (confirmed there as `typedef void*`) the caller
+has to thread through by hand. A raw C function pointer cannot capture
+state, so wrapping one of these by hand means routing everything through
+that `void*` yourself. `creo::VisitFeatures()` does that once for
+`ProSolidFeatVisit` (the example function given in that documentation):
+pass ordinary capturing lambdas, it handles the `ProAppData` plumbing.
+
+```cpp
+creo::ErrorCode result = creo::VisitFeatures(
+    solid,
+    [](const creo::Feature &feature, creo::ErrorCode status) {
+      std::printf("feature id = %d\n", feature.Id());
+      return static_cast<creo::ErrorCode>(0); // PRO_TK_NO_ERROR: continue
+    },
+    [](const creo::Feature &feature) {
+      if (feature.Type() != creo::ObjectType::PRO_FEATURE) {
+        return static_cast<creo::ErrorCode>(-7); // PRO_TK_CONTINUE: skip it
+      }
+      return static_cast<creo::ErrorCode>(0); // visit it
+    });
+```
+
+The filter argument can be omitted — `creo::VisitFeatures(solid, action)`
+calls `action` for every feature. Both callbacks follow PTC's own
+documented return contract exactly, unchanged: `filter` returning
+`PRO_TK_CONTINUE` (-7) skips the item without calling `action`; anything
+else calls `action` with that value as `status`. `action` returning
+`PRO_TK_NO_ERROR` continues visiting; anything else stops the visit
+early and becomes `VisitFeatures()`'s own return value.
+
+`VisitFeatures()` returns that raw `creo::ErrorCode` directly — it is
+**not** thrown as a `ProToolkitError`, unlike most of this wrapper.
+`PRO_TK_E_NOT_FOUND` ("no feature of the desired type exists") and an
+early stop are both often exactly what the caller's own action/filter
+intended, not a failure: inspect the code yourself, the way you would in
+plain C.
+
+A C++ exception thrown from either callback is never let to unwind
+through ProTOOLKIT's C stack frames — undefined behavior for a C API not
+built to expect it. It is caught internally, the visit is stopped, and
+the exception is rethrown once control is back on the C++ side (in place
+of returning a code at all). One subtlety worth knowing: if `filter`
+throws, PTC's own control flow leaves no way to abort before one more
+call — `action` is still invoked once more by the raw C layer, but this
+wrapper detects the pending exception and skips running *your* `action`
+callable for it, so user code never runs again after the throw; only the
+raw trampoline's bookkeeping does.
+
+> **Caveat**: like `ProFeatureRegenerate` above, `ProSolidFeatVisit`'s
+> exact header is not known — its trampoline (`detail::SolidFeatVisit` in
+> `detail/ProtoolkitCompat.hpp`) relies on whichever already-included PTC
+> header declares it. If that turns out to be none of them, the real-SDK
+> build fails to compile right there, loudly.
 
 ### Array&lt;T&gt;
 

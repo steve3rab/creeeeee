@@ -119,6 +119,21 @@ inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return ::ProFeatureRegenerate(solid, feature);
 }
 
+// Visit functions (per PTC's "Visit Functions" documentation): ProAppData
+// is void*; ProFeatureVisitAction/ProFeatureFilterAction are the
+// callback typedefs ProSolidFeatVisit expects. See
+// creo::VisitFeatures() (ModelItem.hpp).
+using RawAppData = ::ProAppData;
+using RawFeatureVisitAction = ::ProFeatureVisitAction;
+using RawFeatureFilterAction = ::ProFeatureFilterAction;
+
+inline ProErrorCode SolidFeatVisit(RawMdl solid,
+                                    RawFeatureVisitAction visit_action,
+                                    RawFeatureFilterAction filter_action,
+                                    RawAppData app_data) {
+  return ::ProSolidFeatVisit(solid, visit_action, filter_action, app_data);
+}
+
 // Trampolines below are to ProAssembly.h functions (see the
 // ModelHandle methods of the same name, minus "Mdl"/"Session", in
 // ModelHandle.hpp).
@@ -207,6 +222,16 @@ inline ProErrorCode ModelitemNameGet(RawModelItem *item, wchar_t *name_out) {
 }
 inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return shim::ProFeatureRegenerate(solid, feature);
+}
+using RawAppData = shim::ProAppData;
+using RawFeatureVisitAction = shim::ProFeatureVisitAction;
+using RawFeatureFilterAction = shim::ProFeatureFilterAction;
+inline ProErrorCode SolidFeatVisit(RawMdl solid,
+                                    RawFeatureVisitAction visit_action,
+                                    RawFeatureFilterAction filter_action,
+                                    RawAppData app_data) {
+  return shim::ProSolidFeatVisit(solid, visit_action, filter_action,
+                                  app_data);
 }
 inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
   return shim::ProMdlActiveGet(p_mdl);

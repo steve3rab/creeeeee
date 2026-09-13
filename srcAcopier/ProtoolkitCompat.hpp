@@ -53,6 +53,17 @@ inline ProErrorCode FeatureRegenerate(RawMdl solid, RawModelItem *feature) {
   return ::ProFeatureRegenerate(solid, feature);
 }
 
+using RawAppData = ::ProAppData;
+using RawFeatureVisitAction = ::ProFeatureVisitAction;
+using RawFeatureFilterAction = ::ProFeatureFilterAction;
+
+inline ProErrorCode SolidFeatVisit(RawMdl solid,
+                                    RawFeatureVisitAction visit_action,
+                                    RawFeatureFilterAction filter_action,
+                                    RawAppData app_data) {
+  return ::ProSolidFeatVisit(solid, visit_action, filter_action, app_data);
+}
+
 inline ProErrorCode MdlActiveGet(RawMdl *p_mdl) {
   return ::ProMdlActiveGet(p_mdl);
 }

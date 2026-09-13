@@ -5,6 +5,10 @@
 #include "ProtoolkitCompat.hpp"
 #include "Text.hpp"
 
+#include <exception>
+#include <type_traits>
+#include <utility>
+
 namespace creo {
 
 class ModelItem {
@@ -47,6 +51,68 @@ public:
         solid.Raw(), const_cast<detail::RawModelItem *>(Raw())));
   }
 };
+
+namespace detail {
+
+template <typename ActionFn, typename FilterFn> struct FeatureVisitContext {
+  ActionFn &action;
+  FilterFn &filter;
+  std::exception_ptr exception;
+};
+
+template <typename ActionFn, typename FilterFn>
+ProErrorCode FeatureVisitTrampoline(RawModelItem *feature, ProErrorCode status,
+                                     RawAppData app_data) noexcept {
+  auto *context =
+      static_cast<FeatureVisitContext<ActionFn, FilterFn> *>(app_data);
+  if (context->exception) {
+    return static_cast<ProErrorCode>(-1);
+  }
+  try {
+    return context->action(Feature(*feature), status);
+  } catch (...) {
+    context->exception = std::current_exception();
+    return static_cast<ProErrorCode>(-1);
+  }
+}
+
+template <typename ActionFn, typename FilterFn>
+ProErrorCode FeatureFilterTrampoline(RawModelItem *feature,
+                                      RawAppData app_data) noexcept {
+  auto *context =
+      static_cast<FeatureVisitContext<ActionFn, FilterFn> *>(app_data);
+  try {
+    return context->filter(Feature(*feature));
+  } catch (...) {
+    context->exception = std::current_exception();
+    return static_cast<ProErrorCode>(-1);
+  }
+}
+
+}
+
+template <typename ActionFn, typename FilterFn>
+ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action,
+                         FilterFn &&filter) {
+  using ActionT = std::remove_reference_t<ActionFn>;
+  using FilterT = std::remove_reference_t<FilterFn>;
+  detail::FeatureVisitContext<ActionT, FilterT> context{action, filter,
+                                                          nullptr};
+  ErrorCode result = detail::SolidFeatVisit(
+      solid.Raw(), &detail::FeatureVisitTrampoline<ActionT, FilterT>,
+      &detail::FeatureFilterTrampoline<ActionT, FilterT>, &context);
+  if (context.exception) {
+    std::rethrow_exception(context.exception);
+  }
+  return result;
+}
+
+template <typename ActionFn>
+ErrorCode VisitFeatures(const ModelHandle &solid, ActionFn &&action) {
+  return VisitFeatures(
+      solid, std::forward<ActionFn>(action),
+      [](const Feature &) { return static_cast<ErrorCode>(0); });
+}
 
 using GeomItem = ModelItem;
 using ExtObj = ModelItem;

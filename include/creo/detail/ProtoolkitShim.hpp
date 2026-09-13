@@ -695,6 +695,63 @@ inline ProError ProFeatureRegenerate(ProMdl solid, ProFeature *feature) {
 }
 
 // -----------------------------------------------------------------------
+// Visit functions (per PTC's "Visit Functions" documentation, pasted
+// verbatim by the user): ProAppData is confirmed there as `typedef
+// void*`. ProFeatureVisitAction/ProFeatureFilterAction and
+// ProSolidFeatVisit's own signature are reproduced exactly as given.
+// -----------------------------------------------------------------------
+using ProAppData = void *;
+
+typedef ProError (*ProFeatureVisitAction)(ProFeature *feature,
+                                           ProError status,
+                                           ProAppData app_data);
+typedef ProError (*ProFeatureFilterAction)(ProFeature *feature,
+                                            ProAppData app_data);
+
+// Toggle: how many fake features ProSolidFeatVisit should report.
+inline int &FakeSolidFeatureCount() {
+  static int count = 0;
+  return count;
+}
+
+// Genuinely functional (not a stub): creo::VisitFeatures() (ModelItem.hpp)
+// has real control-flow logic to exercise (filter-then-action, early
+// termination, "nothing found") that a stub could not test. Implements
+// PTC's documented contract exactly: filter_action returning
+// PRO_TK_CONTINUE skips the item; any other value calls visit_action with
+// that value as `status`; visit_action returning anything other than
+// PRO_TK_NO_ERROR stops the visit and that value is returned here.
+inline ProError ProSolidFeatVisit(ProMdl solid,
+                                   ProFeatureVisitAction visit_action,
+                                   ProFeatureFilterAction filter_action,
+                                   ProAppData app_data) {
+  if (solid == nullptr || visit_action == nullptr ||
+      filter_action == nullptr) {
+    return PRO_TK_BAD_INPUTS;
+  }
+  int count = FakeSolidFeatureCount();
+  if (count == 0) {
+    return PRO_TK_E_NOT_FOUND;
+  }
+  for (int i = 0; i < count; ++i) {
+    ProFeature feature{};
+    feature.type = PRO_FEATURE;
+    feature.id = i + 1;
+    feature.owner = solid;
+
+    ProError status = filter_action(&feature, app_data);
+    if (status == PRO_TK_CONTINUE) {
+      continue;
+    }
+    ProError action_result = visit_action(&feature, status, app_data);
+    if (action_result != PRO_TK_NO_ERROR) {
+      return action_result;
+    }
+  }
+  return PRO_TK_NO_ERROR;
+}
+
+// -----------------------------------------------------------------------
 // ProArray (ProArray.h, Creo 10): PTC's generic dynamic array, a plain
 // opaque `void*` on the API side. Unlike ProMdl/ProError above (simple
 // substitute types, never algorithmically exercised in shim mode),

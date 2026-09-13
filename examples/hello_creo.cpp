@@ -37,6 +37,14 @@
 //     function, so (like DemonstrateTypes()/DemonstrateArray()) it runs
 //     identically in shim mode and in real-SDK mode.
 //
+//  6) PrintFeatures(): tours creo::VisitFeatures(), a lambda-friendly
+//     wrapper around ProSolidFeatVisit (PTC's "visit function" pattern
+//     for a solid's features) — pass ordinary capturing lambdas as the
+//     action/filter instead of routing through a raw C function pointer
+//     and a void* ProAppData by hand. Requires the real SDK (an actual
+//     solid to visit) to do anything useful; otherwise it just shows the
+//     "no current model" path.
+//
 // Technical note: this file only uses std::printf/std::puts (never
 // std::wprintf) for output. Mixing "wide" and "narrow" calls on the same
 // stdout stream is undefined behavior in C/C++ (the stream locks onto
@@ -291,6 +299,43 @@ void PrintSessionModelInfo() {
     std::printf("Could not list session models: %s\n", e.what());
   }
 }
+
+// Visits every feature of the active model, printing name and id, and
+// counts how many are of type PRO_FEATURE (the vast majority in
+// practice) via the filter argument. VisitFeatures() is not thrown as a
+// ProToolkitError on "nothing found"/an early stop (see its own comment
+// in ModelItem.hpp): its return code is inspected directly here instead.
+void PrintFeatures() {
+  std::optional<creo::ModelHandle> active = creo::ModelHandle::TryGetActive();
+  if (!active.has_value()) {
+    std::puts("No active model to visit features on.");
+    return;
+  }
+
+  int considered = 0;
+  creo::ErrorCode result = creo::VisitFeatures(
+      *active,
+      [&](const creo::Feature &feature, creo::ErrorCode /*status*/) {
+        ++considered;
+        std::printf("  feature id = %d\n", feature.Id());
+        return static_cast<creo::ErrorCode>(0); // PRO_TK_NO_ERROR: continue
+      },
+      [](const creo::Feature &feature) {
+        if (feature.Type() != creo::ObjectType::PRO_FEATURE) {
+          return static_cast<creo::ErrorCode>(-7); // PRO_TK_CONTINUE: skip
+        }
+        return static_cast<creo::ErrorCode>(0); // PRO_TK_NO_ERROR: visit it
+      });
+
+  if (result == static_cast<creo::ErrorCode>(-4)) { // PRO_TK_E_NOT_FOUND
+    std::puts("No features found on the active model.");
+  } else if (result != static_cast<creo::ErrorCode>(0)) {
+    std::printf("Visit stopped early with code %d after %d feature(s)\n",
+                static_cast<int>(result), considered);
+  } else {
+    std::printf("Visited %d feature(s)\n", considered);
+  }
+}
 #endif
 
 } // namespace
@@ -311,6 +356,9 @@ int main() {
 
     std::puts("\n--- Creo session: ProAssembly.h wrappers ---");
     PrintSessionModelInfo();
+
+    std::puts("\n--- Creo session: VisitFeatures() ---");
+    PrintFeatures();
 #else
     std::puts(
         "ProTOOLKIT SDK not found: this part was built in 'shim' mode. "
