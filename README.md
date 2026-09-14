@@ -95,6 +95,12 @@ srcAcopier/
   ScopeGuard.hpp,                  build). Same file split as
   ProtoolkitCompat.hpp,            include/creo/ above.
   Error.cpp
+  ProtoolkitCompatError.hpp        Minimal alternative to
+                                    ProtoolkitCompat.hpp, scoped to only
+                                    what Error.hpp/Error.cpp need (see
+                                    "Testing/integrating one file at a
+                                    time" below) -- only <ProToolkit.h>,
+                                    not the other seven PTC headers.
   PropertyUtils.hpp                Flat copy of windows/PropertyUtils.hpp
                                     (same content, no comments) for
                                     dropping alongside the rest of this
@@ -176,6 +182,43 @@ AddressSanitizer/UndefinedBehaviorSanitizer on native Linux
 (`test_scope_guard.cpp` directly; `test_property_utils.cpp` against a
 small hand-written `windows.h` stand-in, scratch-only, not part of this
 repository).
+
+## Testing/integrating one file at a time
+
+`srcAcopier/` is meant to be dropped into a real ProTOOLKIT project (SDK
++ Creo license available) incrementally, not all at once — each file
+compiled and exercised on its own before pulling in the next, since that
+localizes any surprise (a header this project assumed exists but is
+named differently in your SDK version, an argument order that turns out
+wrong, ...) to the one file just added. Recommended order, closest
+dependencies first:
+
+1. `PropertyUtils.hpp` — zero ProTOOLKIT dependency (pure Win32).
+2. `ScopeGuard.hpp` — zero dependency on anything.
+3. `ProtoolkitCompat.hpp` — the first file that touches the real PTC
+   headers directly; everything else depends on it.
+4. `Error.hpp` + `Error.cpp`.
+5. `Text.hpp`, then `ObjectType.hpp`, then `Array.hpp`.
+6. `ModelHandle.hpp`, then `ModelItem.hpp`.
+7. `Geometry.hpp` — only once you have a concrete real PTC type
+   (`ProCsys`, `ProAxis`, ...) to hand it.
+
+Step 3/4 has a shortcut: `Error.hpp`/`Error.cpp` only ever use
+`creo::detail::ProErrorCode`/`kNoError` — nothing from the other seven
+PTC headers `ProtoolkitCompat.hpp` pulls in for `Array`/`ModelHandle`/
+`ModelItem`/`Geometry`'s sake. `ProtoolkitCompatError.hpp` is that
+narrower slice: `#include <ProToolkit.h>` alone, nothing else. Use it
+instead of the full `ProtoolkitCompat.hpp` when you specifically want
+`Error.hpp` working first, in isolation, before committing to the rest —
+copy it alongside `Error.hpp`/`Error.cpp` and point `Error.hpp`'s
+`#include "ProtoolkitCompat.hpp"` at it (or rename it to
+`ProtoolkitCompat.hpp` in that narrower drop, since the full one is not
+also present there). Verified in this sandbox: a real MinGW-w64 compile
+of `Error.hpp`/`Error.cpp` against an include directory containing only
+a `ProToolkit.h` (no `ProArray.h`/`ProAssembly.h`/etc.), plus real
+execution under AddressSanitizer/UndefinedBehaviorSanitizer confirming
+`ToString()`/`CREO_CHECK`/`ProToolkitError` all behave correctly on that
+minimal slice.
 
 ## Usage
 
