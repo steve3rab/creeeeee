@@ -1,148 +1,99 @@
-// Unit tests for PropertyUtils (windows/PropertyUtils.hpp). Unlike
-// test_scope_guard.cpp, this needs the real Win32 API (this project is
-// Windows-only already, see the top-level CMakeLists.txt guard): no
-// mock/fake layer here, these run against the real
-// GetEnvironmentVariableW/SetEnvironmentVariableW/MultiByteToWideChar/
-// WideCharToMultiByte. Plain assert()-based: no test framework
-// dependency, matching this project's existing style. Exit code 0 = all
-// tests passed.
+// Unit tests for PropertyUtils (windows/PropertyUtils.hpp), using
+// doctest (vendored: tests/doctest.h, MIT license, see its own header
+// for the full notice). Each TEST_CASE below is its own independently
+// reported test -- doctest supplies main() itself
+// (DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN), nothing hand-rolled here.
+//
+// Windows-only like the library itself (only registered with CTest
+// under WIN32, see CMakeLists.txt): no mock/fake layer, these run
+// against the real GetEnvironmentVariableW/SetEnvironmentVariableW/
+// MultiByteToWideChar/WideCharToMultiByte.
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
+
 #include "PropertyUtils.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <stdexcept>
 #include <string>
 
-namespace {
-
-void StringToWideRoundTripAscii() {
+TEST_CASE("stringToWideString/wideStringToString round-trip ASCII") {
   std::wstring wide = PropertyUtils::stringToWideString("hello");
-  assert(wide == L"hello");
-  std::string back = PropertyUtils::wideStringToString(wide);
-  assert(back == "hello");
-  std::puts("StringToWideRoundTripAscii: OK");
+  CHECK(wide == L"hello");
+  CHECK(PropertyUtils::wideStringToString(wide) == "hello");
 }
 
-void StringToWideRoundTripNonAscii() {
+TEST_CASE("stringToWideString/wideStringToString round-trip non-ASCII") {
   // "café" in UTF-8: 'c','a','f' + U+00E9 (encoded as 0xC3 0xA9).
   const std::string utf8 = "caf\xC3\xA9";
   std::wstring wide = PropertyUtils::stringToWideString(utf8);
-  assert(wide.size() == 4);
-  assert(wide[3] == static_cast<wchar_t>(0x00E9));
-  std::string back = PropertyUtils::wideStringToString(wide);
-  assert(back == utf8);
-  std::puts("StringToWideRoundTripNonAscii: OK");
+  REQUIRE(wide.size() == 4);
+  CHECK(wide[3] == static_cast<wchar_t>(0x00E9));
+  CHECK(PropertyUtils::wideStringToString(wide) == utf8);
 }
 
-void EmptyStringIsEmpty() {
-  assert(PropertyUtils::stringToWideString("").empty());
-  assert(PropertyUtils::charToWideString(nullptr).empty());
-  assert(PropertyUtils::charToWideString("").empty());
-  assert(PropertyUtils::wideStringToString(L"").empty());
-  std::puts("EmptyStringIsEmpty: OK");
+TEST_CASE("empty strings stay empty") {
+  CHECK(PropertyUtils::stringToWideString("").empty());
+  CHECK(PropertyUtils::charToWideString(nullptr).empty());
+  CHECK(PropertyUtils::charToWideString("").empty());
+  CHECK(PropertyUtils::wideStringToString(L"").empty());
 }
 
-void MalformedUtf8Throws() {
+TEST_CASE("malformed UTF-8 throws std::invalid_argument") {
   // 0xFF is never valid in any position of a UTF-8 sequence. Built via
   // string literal concatenation so the \xFF hex escape does not
   // greedily consume the following letter as more hex digits.
   const std::string invalid = "valid"
                                "\xFF"
                                "text";
-  bool threw = false;
-  try {
-    (void)PropertyUtils::stringToWideString(invalid);
-  } catch (const std::invalid_argument &) {
-    threw = true;
-  }
-  assert(threw);
-  std::puts("MalformedUtf8Throws: OK");
+  CHECK_THROWS_AS(PropertyUtils::stringToWideString(invalid),
+                  std::invalid_argument);
 }
 
-void EnvironmentStrRoundTrip() {
+TEST_CASE("environmentStr() round-trips through the real environment") {
   const wchar_t *name = L"CREO_WRAPPER_TEST_PROPERTYUTILS_STR";
-  BOOL set_ok = SetEnvironmentVariableW(name, L"hello world");
-  assert(set_ok != 0);
-
-  std::string value =
-      PropertyUtils::environmentStr("CREO_WRAPPER_TEST_PROPERTYUTILS_STR");
-  assert(value == "hello world");
-
+  REQUIRE(SetEnvironmentVariableW(name, L"hello world") != 0);
+  CHECK(PropertyUtils::environmentStr("CREO_WRAPPER_TEST_PROPERTYUTILS_STR") ==
+        "hello world");
   SetEnvironmentVariableW(name, nullptr); // unset
-  std::puts("EnvironmentStrRoundTrip: OK");
 }
 
-void EnvironmentStrMissingThrows() {
+TEST_CASE("environmentStr() throws with the variable name when missing") {
   SetEnvironmentVariableW(L"CREO_WRAPPER_TEST_PROPERTYUTILS_MISSING", nullptr);
-  bool threw = false;
   try {
     (void)PropertyUtils::environmentStr(
         "CREO_WRAPPER_TEST_PROPERTYUTILS_MISSING");
+    FAIL("expected std::runtime_error");
   } catch (const std::runtime_error &e) {
-    threw = true;
-    std::string what = e.what();
-    assert(what.find("CREO_WRAPPER_TEST_PROPERTYUTILS_MISSING") !=
-           std::string::npos);
+    CHECK(std::string(e.what()).find(
+              "CREO_WRAPPER_TEST_PROPERTYUTILS_MISSING") != std::string::npos);
   }
-  assert(threw);
-  std::puts("EnvironmentStrMissingThrows: OK");
 }
 
-void EnvironmentStrEmptyNameThrows() {
+TEST_CASE("environmentStr() throws std::runtime_error on an empty name") {
   // readEnvironment() rejects an empty name with std::invalid_argument,
   // but environmentStr() wraps every failure from it into a
   // std::runtime_error (see its own try/catch) -- the empty-name case is
   // not special-cased differently from "missing".
-  bool threw = false;
-  try {
-    (void)PropertyUtils::environmentStr("");
-  } catch (const std::runtime_error &) {
-    threw = true;
-  }
-  assert(threw);
-  std::puts("EnvironmentStrEmptyNameThrows: OK");
+  CHECK_THROWS_AS(PropertyUtils::environmentStr(""), std::runtime_error);
 }
 
-void EnvironmentPathRoundTrip() {
+TEST_CASE("environmentPath() round-trips through the real environment") {
   const wchar_t *name = L"CREO_WRAPPER_TEST_PROPERTYUTILS_PATH";
-  BOOL set_ok = SetEnvironmentVariableW(name, L"C:\\Users\\test\\Creo");
-  assert(set_ok != 0);
-
-  std::filesystem::path path = PropertyUtils::environmentPath(name);
-  assert(path == std::filesystem::path(L"C:\\Users\\test\\Creo"));
-
+  REQUIRE(SetEnvironmentVariableW(name, L"C:\\Users\\test\\Creo") != 0);
+  CHECK(PropertyUtils::environmentPath(name) ==
+        std::filesystem::path(L"C:\\Users\\test\\Creo"));
   SetEnvironmentVariableW(name, nullptr); // unset
-  std::puts("EnvironmentPathRoundTrip: OK");
 }
 
-void EnvironmentPathMissingThrows() {
+TEST_CASE("environmentPath() throws with the variable name when missing") {
   const wchar_t *name = L"CREO_WRAPPER_TEST_PROPERTYUTILS_PATH_MISSING";
   SetEnvironmentVariableW(name, nullptr);
-  bool threw = false;
   try {
     (void)PropertyUtils::environmentPath(name);
+    FAIL("expected std::runtime_error");
   } catch (const std::runtime_error &e) {
-    threw = true;
-    std::string what = e.what();
-    assert(what.find("CREO_WRAPPER_TEST_PROPERTYUTILS_PATH_MISSING") !=
-           std::string::npos);
+    CHECK(std::string(e.what()).find(
+              "CREO_WRAPPER_TEST_PROPERTYUTILS_PATH_MISSING") !=
+          std::string::npos);
   }
-  assert(threw);
-  std::puts("EnvironmentPathMissingThrows: OK");
-}
-
-} // namespace
-
-int main() {
-  StringToWideRoundTripAscii();
-  StringToWideRoundTripNonAscii();
-  EmptyStringIsEmpty();
-  MalformedUtf8Throws();
-  EnvironmentStrRoundTrip();
-  EnvironmentStrMissingThrows();
-  EnvironmentStrEmptyNameThrows();
-  EnvironmentPathRoundTrip();
-  EnvironmentPathMissingThrows();
-  std::puts("OK - all PropertyUtils tests passed");
-  return 0;
 }
