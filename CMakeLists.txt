@@ -70,9 +70,10 @@ if(WIN32)
   )
 endif()
 
-# Unit tests: plain assert()-based executables (no test framework
-# dependency), registered with CTest so `ctest` (or `ctest --output-on-
-# failure`) runs them all and reports pass/fail per test.
+# Unit tests: doctest-based executables (vendored single header,
+# tests/doctest.h, MIT license -- no build-system dependency), registered
+# with CTest so `ctest` (or `ctest --output-on-failure`) runs them all and
+# reports pass/fail per test case.
 option(CREO_WRAPPER_BUILD_TESTS "Build the wrapper unit tests" ON)
 if(CREO_WRAPPER_BUILD_TESTS)
   enable_testing()
@@ -84,6 +85,14 @@ if(CREO_WRAPPER_BUILD_TESTS)
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
   )
   add_test(NAME scope_guard COMMAND test_scope_guard)
+
+  # Error.hpp needs no live Creo session (ToString()/ProToolkitError/
+  # CREO_CHECK only build/throw a C++ exception from a code the caller
+  # already has), so this runs the same in shim or real-SDK mode --
+  # whichever creo_wrapper itself was built in -- no extra guard needed.
+  add_executable(test_error tests/test_error.cpp)
+  target_link_libraries(test_error PRIVATE creo_wrapper)
+  add_test(NAME error COMMAND test_error)
 
   if(WIN32)
     add_executable(test_property_utils tests/test_property_utils.cpp)

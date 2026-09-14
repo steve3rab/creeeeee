@@ -80,6 +80,7 @@ tests/
   doctest.h                        Vendored test framework (single
                                     header, MIT license)
   test_scope_guard.cpp             Unit tests: ScopeGuard/Defer
+  test_error.cpp                   Unit tests: Error
   test_property_utils.cpp          Unit tests: PropertyUtils
 examples/
   hello_creo.cpp                   Tour of types/errors/Array + active model name
@@ -161,6 +162,17 @@ has doctest itself generate `main()`):
   multiple guards unwinding in reverse declaration order, and captures
   being a snapshot at creation time (unaffected by mutating the source
   variable afterward).
+- `test_error.cpp` — `ErrorCode`/`ProToolkitError`/`ToString()`/
+  `CREO_CHECK` (`creo/Error.hpp` + `src/Error.cpp`), 8 cases. Needs no
+  live Creo session at all (`ToString()` is a pure code-to-label lookup;
+  `ProToolkitError`/`CREO_CHECK` only build/throw a C++ exception from a
+  code the caller already has — no ProTOOLKIT call happens inside
+  either), so it runs the same in shim mode or real-SDK mode, whichever
+  `creo_wrapper` itself was built in: known codes mapping to their PTC
+  label, the raw-number fallback for a code outside the known enum, the
+  exception message with and without a context string, `code()`, and
+  `ThrowIfError()`/`CREO_CHECK()` not throwing on success vs. throwing
+  with the right code/message on failure.
 - `test_property_utils.cpp` — `PropertyUtils` (`windows/PropertyUtils.hpp`),
   9 cases. Windows-only like the library itself (only registered with
   CTest under `if(WIN32)`): UTF-8/wide round-trips (ASCII and
@@ -173,15 +185,18 @@ Each test executable also runs standalone with doctest's own CLI, e.g.
 `./build/test_scope_guard.exe --list-test-cases` or
 `--test-case="Dismiss*"` to filter — see `--help` for the rest.
 
-Both were verified in this sandbox (no Windows/Wine available here) via
-MinGW-w64 cross-compilation against the real Win32 headers for
+All three were verified in this sandbox (no Windows/Wine available here)
+via MinGW-w64 cross-compilation against the real Win32 headers for
 `test_property_utils.cpp`, plus real execution (all cases passing, and a
 deliberately-broken copy of `test_scope_guard.cpp` confirmed to fail with
 correct file:line reporting and a non-zero exit code) under
 AddressSanitizer/UndefinedBehaviorSanitizer on native Linux
-(`test_scope_guard.cpp` directly; `test_property_utils.cpp` against a
-small hand-written `windows.h` stand-in, scratch-only, not part of this
-repository).
+(`test_scope_guard.cpp`/`test_error.cpp` directly; `test_property_utils.cpp`
+against a small hand-written `windows.h` stand-in, scratch-only, not part
+of this repository). `test_error.cpp` was additionally run against a
+minimal real-SDK-mode stand-in (a hand-written `ProToolkit.h`, also
+scratch-only) to confirm it behaves identically in both modes, as
+claimed above.
 
 ## Testing/integrating one file at a time
 
