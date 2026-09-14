@@ -69,3 +69,25 @@ if(WIN32)
     "${CMAKE_CURRENT_SOURCE_DIR}/windows"
   )
 endif()
+
+# Unit tests: plain assert()-based executables (no test framework
+# dependency), registered with CTest so `ctest` (or `ctest --output-on-
+# failure`) runs them all and reports pass/fail per test.
+option(CREO_WRAPPER_BUILD_TESTS "Build the wrapper unit tests" ON)
+if(CREO_WRAPPER_BUILD_TESTS)
+  enable_testing()
+
+  # ScopeGuard.hpp has zero ProTOOLKIT/Win32 dependency: only needs the
+  # include directory, no library to link.
+  add_executable(test_scope_guard tests/test_scope_guard.cpp)
+  target_include_directories(test_scope_guard PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+  )
+  add_test(NAME scope_guard COMMAND test_scope_guard)
+
+  if(WIN32)
+    add_executable(test_property_utils tests/test_property_utils.cpp)
+    target_link_libraries(test_property_utils PRIVATE property_utils)
+    add_test(NAME property_utils COMMAND test_property_utils)
+  endif()
+endif()

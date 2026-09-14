@@ -76,6 +76,9 @@ include/creo/
   detail/ProtoolkitShim.hpp        Substitute types (no SDK)
 src/
   Error.cpp
+tests/
+  test_scope_guard.cpp             Unit tests: ScopeGuard/Defer
+  test_property_utils.cpp          Unit tests: PropertyUtils
 examples/
   hello_creo.cpp                   Tour of types/errors/Array + active model name
 cmake/
@@ -125,6 +128,41 @@ cmake --build build
 `CREO_TOOLKIT_ROOT` and `CREO_TOOLKIT_ARCH` can also be supplied as
 environment variables. See `cmake/FindProToolkit.cmake` for the paths it
 searches.
+
+## Testing
+
+```bash
+cmake -S . -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+`tests/` (built by default, `-DCREO_WRAPPER_BUILD_TESTS=OFF` to skip)
+holds plain `assert()`-based unit tests — no test framework dependency,
+each one prints a line per scenario and exits non-zero on the first
+failed assertion:
+
+- `test_scope_guard.cpp` — `creo::ScopeGuard`/`Defer()`. Zero ProTOOLKIT/
+  Win32 dependency, so it builds and runs on any platform: normal/
+  exception scope exit, `Dismiss()` (with and without a following
+  exception), move transferring ownership away from the source guard,
+  multiple guards unwinding in reverse declaration order, and captures
+  being a snapshot at creation time (unaffected by mutating the source
+  variable afterward).
+- `test_property_utils.cpp` — `PropertyUtils` (`windows/PropertyUtils.hpp`).
+  Windows-only like the library itself (only registered with CTest under
+  `if(WIN32)`): UTF-8/wide round-trips (ASCII and non-ASCII),
+  empty-string handling, throwing on malformed UTF-8, and
+  `environmentStr()`/`environmentPath()` round-tripping through the real
+  `SetEnvironmentVariableW`/`GetEnvironmentVariableW`, including the
+  missing-variable and empty-name failure paths.
+
+Both were verified in this sandbox (no Windows/Wine available here) via
+MinGW-w64 cross-compilation against the real Win32 headers for
+`test_property_utils.cpp`, plus real execution under AddressSanitizer/
+UndefinedBehaviorSanitizer on native Linux (`test_scope_guard.cpp`
+directly; `test_property_utils.cpp` against a small hand-written
+`windows.h` stand-in, scratch-only, not part of this repository).
 
 ## Usage
 
