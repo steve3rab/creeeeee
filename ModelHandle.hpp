@@ -3,6 +3,7 @@
 #include "Error.hpp"
 #include "ScopeGuard.hpp"
 
+#include <ProAssembly.h>
 #include <ProMdl.h>
 #include <ProSizeConst.h>
 #include <ProSolid.h>
@@ -14,27 +15,24 @@
 
 namespace creo {
 
+struct ModelInfo {
+  std::wstring name;
+  ProMdlType type;
+  std::wstring path;
+  int version;
+  std::wstring device;
+  std::wstring host;
+  ProMdlType subclass;
+  bool from_windchill;
+};
+
 class ModelHandle {
 public:
   ModelHandle() noexcept : handle_(nullptr) {}
   explicit ModelHandle(ProMdl handle) noexcept : handle_(handle) {}
 
-  static ModelHandle Current() {
-    ProMdl model = nullptr;
-    CREO_CHECK(ProMdlCurrentGet(&model));
-    if (model == nullptr) {
-      throw std::runtime_error("ModelHandle::Current: no current model");
-    }
-    return ModelHandle(model);
-  }
-
-  static ModelHandle Active() {
-    ProMdl model = nullptr;
-    CREO_CHECK(ProMdlActiveGet(&model));
-    if (model == nullptr) {
-      throw std::runtime_error("ModelHandle::Active: no active model");
-    }
-    return ModelHandle(model);
+  static ModelHandle CurrentVisible() {
+    return ModelHandle(ResolveCurrentModel().model);
   }
 
   ProMdl Raw() const noexcept { return handle_; }
@@ -64,6 +62,35 @@ public:
     ProBoolean is_modified = PRO_B_FALSE;
     CREO_CHECK(ProMdlModificationVerify(handle_, &is_modified));
     return is_modified == PRO_B_TRUE;
+  }
+
+  ModelInfo Info() const {
+    CheckExists();
+
+    ModelInfo info{};
+
+    wchar_t name_buffer[PRO_MDLNAME_SIZE] = {};
+    CREO_CHECK(ProMdlMdlnameGet(handle_, name_buffer));
+    info.name = name_buffer;
+
+    CREO_CHECK(ProMdlTypeGet(handle_, &info.type));
+
+    wchar_t path_buffer[PRO_PATH_SIZE] = {};
+    CREO_CHECK(ProMdlDirectoryPathGet(handle_, path_buffer));
+    info.path = path_buffer;
+
+    wchar_t parsed_name[PRO_MDLNAME_SIZE] = {};
+    wchar_t parsed_type[PRO_MDLEXTENSION_SIZE] = {};
+    wchar_t device_buffer[PRO_NAME_SIZE] = {};
+    wchar_t host_buffer[PRO_NAME_SIZE] = {};
+    CREO_CHECK(ProFileMdlnameParse(name_buffer, parsed_name, parsed_type,
+                                    &info.version, device_buffer, host_buffer,
+                                    &info.subclass));
+    info.device = device_buffer;
+    info.host = host_buffer;
+    info.from_windchill = !info.device.empty() && !info.host.empty();
+
+    return info;
   }
 
   void Display() {
@@ -144,7 +171,7 @@ private:
     CREO_CHECK(ProMdlVerify(handle_));
   }
 
-  int CheckCurrentWindow() const {
+  static int CheckCurrentWindow() {
     int window_id = 0;
     CREO_CHECK(ProWindowCurrentGet(&window_id));
     if (window_id <= 0) {
@@ -162,7 +189,7 @@ private:
     return window_id;
   }
 
-  CurrentModelContext ResolveCurrentModel() const {
+  static CurrentModelContext ResolveCurrentModel() {
     int window_id = CheckCurrentWindow();
 
     ProMdl model = nullptr;
