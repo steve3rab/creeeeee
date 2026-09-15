@@ -59,77 +59,84 @@ public:
     return CheckDisplayed();
   }
 
-  void Display() const {
+  bool IsModified() const {
     CheckExists();
-    int window_id = CheckCurrentWindow();
-    CREO_CHECK(ProMdlDisplay(handle_));
-    CREO_CHECK(ProWindowRepaint(window_id));
+    ProBoolean is_modified = PRO_B_FALSE;
+    CREO_CHECK(ProMdlModificationVerify(handle_, &is_modified));
+    return is_modified == PRO_B_TRUE;
   }
 
-  int DisplayInNewWindow(const std::wstring &window_label) const {
-    CheckExists();
+  void Display() {
+    CurrentModelContext ctx = ResolveCurrentModel();
+    CREO_CHECK(ProMdlDisplay(ctx.model));
+    CREO_CHECK(ProWindowRepaint(ctx.window_id));
+    handle_ = ctx.model;
+  }
+
+  int DisplayInNewWindow(const std::wstring &window_label) {
+    CurrentModelContext ctx = ResolveCurrentModel();
+
     int window_id = -1;
     CREO_CHECK(ProWindowCreate(const_cast<wchar_t *>(window_label.c_str()),
-                                handle_, &window_id));
+                                ctx.model, &window_id));
 
     auto destroy_window_on_failure = Defer([&] { ProWindowDelete(window_id); });
 
     CREO_CHECK(ProWindowCurrentSet(window_id));
-    CREO_CHECK(ProMdlDisplay(handle_));
+    CREO_CHECK(ProMdlDisplay(ctx.model));
     CREO_CHECK(ProWindowRepaint(window_id));
 
     destroy_window_on_failure.Dismiss();
+    handle_ = ctx.model;
     return window_id;
   }
 
-  void ForceRefresh() const {
-    CheckExists();
-    int window_id = CheckDisplayed();
-    CREO_CHECK(ProWindowRepaint(window_id));
+  void ForceRefresh() {
+    CurrentModelContext ctx = ResolveCurrentModel();
+    CREO_CHECK(ProWindowRepaint(ctx.window_id));
+    handle_ = ctx.model;
   }
 
-  void Regenerate(bool resolve_mode = false) const {
-    CheckExists();
-    CREO_CHECK(
-        ProSolidRegenerate(handle_, resolve_mode ? PRO_B_TRUE : PRO_B_FALSE));
-    int window_id = 0;
-    if (ProMdlWindowGet(handle_, &window_id) == PRO_TK_NO_ERROR) {
-      ProWindowRepaint(window_id);
-    }
+  void Regenerate(bool resolve_mode = false) {
+    CurrentModelContext ctx = ResolveCurrentModel();
+    CREO_CHECK(ProSolidRegenerate(ctx.model,
+                                   resolve_mode ? PRO_B_TRUE : PRO_B_FALSE));
+    CREO_CHECK(ProWindowRepaint(ctx.window_id));
+    handle_ = ctx.model;
   }
 
-  void Save() const {
-    CheckExists();
-    CREO_CHECK(ProMdlSave(handle_));
+  void Save() {
+    CurrentModelContext ctx = ResolveCurrentModel();
+    CREO_CHECK(ProMdlSave(ctx.model));
+    handle_ = ctx.model;
   }
 
   void Rename(const std::wstring &new_name) {
-    int window_id = CheckCurrentWindow();
-
-    ProMdl model = nullptr;
-    CREO_CHECK(ProMdlCurrentGet(&model));
-    if (model == nullptr) {
-      throw std::runtime_error("ModelHandle::Rename: no current model");
-    }
-    CREO_CHECK(ProMdlVerify(model));
+    CurrentModelContext ctx = ResolveCurrentModel();
 
     wchar_t old_name_buffer[PRO_MDLNAME_SIZE] = {};
-    CREO_CHECK(ProMdlMdlnameGet(model, old_name_buffer));
+    CREO_CHECK(ProMdlMdlnameGet(ctx.model, old_name_buffer));
     std::wstring old_name(old_name_buffer);
 
-    CREO_CHECK(ProMdlRename(model, const_cast<wchar_t *>(new_name.c_str())));
+    CREO_CHECK(
+        ProMdlnameRename(ctx.model, const_cast<wchar_t *>(new_name.c_str())));
 
     auto restore_name_on_failure = Defer([&] {
-      ProMdlRename(model, const_cast<wchar_t *>(old_name.c_str()));
+      ProMdlnameRename(ctx.model, const_cast<wchar_t *>(old_name.c_str()));
     });
 
-    CREO_CHECK(ProWindowRepaint(window_id));
+    CREO_CHECK(ProWindowRepaint(ctx.window_id));
 
     restore_name_on_failure.Dismiss();
-    handle_ = model;
+    handle_ = ctx.model;
   }
 
 private:
+  struct CurrentModelContext {
+    ProMdl model;
+    int window_id;
+  };
+
   void CheckExists() const {
     if (handle_ == nullptr) {
       throw std::invalid_argument("ModelHandle: invalid (null) handle");
@@ -153,6 +160,29 @@ private:
       throw std::runtime_error("ModelHandle: model not visible in any window");
     }
     return window_id;
+  }
+
+  CurrentModelContext ResolveCurrentModel() const {
+    int window_id = CheckCurrentWindow();
+
+    ProMdl model = nullptr;
+    CREO_CHECK(ProMdlCurrentGet(&model));
+    if (model == nullptr) {
+      throw std::runtime_error("ModelHandle: no current model");
+    }
+    CREO_CHECK(ProMdlVerify(model));
+
+    ProBoolean is_modified = PRO_B_FALSE;
+    CREO_CHECK(ProMdlModificationVerify(model, &is_modified));
+
+    int model_window_id = 0;
+    CREO_CHECK(ProMdlWindowGet(model, &model_window_id));
+    if (model_window_id != window_id) {
+      throw std::runtime_error(
+          "ModelHandle: current model is not visible in the current window");
+    }
+
+    return {model, window_id};
   }
 
   ProMdl handle_;
