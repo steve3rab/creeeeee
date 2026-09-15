@@ -19,11 +19,7 @@ struct ModelInfo {
   std::wstring name;
   ProMdlType type;
   std::wstring path;
-  int version;
-  std::wstring device;
-  std::wstring host;
-  ProMdlType subclass;
-  bool from_windchill;
+  std::wstring extension;
 };
 
 class ModelHandle {
@@ -79,16 +75,9 @@ public:
     CREO_CHECK(ProMdlDirectoryPathGet(handle_, path_buffer));
     info.path = path_buffer;
 
-    wchar_t parsed_name[PRO_MDLNAME_SIZE] = {};
-    wchar_t parsed_type[PRO_MDLEXTENSION_SIZE] = {};
-    wchar_t device_buffer[PRO_NAME_SIZE] = {};
-    wchar_t host_buffer[PRO_NAME_SIZE] = {};
-    CREO_CHECK(ProFileMdlnameParse(name_buffer, parsed_name, parsed_type,
-                                    &info.version, device_buffer, host_buffer,
-                                    &info.subclass));
-    info.device = device_buffer;
-    info.host = host_buffer;
-    info.from_windchill = !info.device.empty() && !info.host.empty();
+    wchar_t extension_buffer[PRO_MDLEXTENSION_SIZE] = {};
+    CREO_CHECK(ProMdlExtensionGet(handle_, extension_buffer));
+    info.extension = extension_buffer;
 
     return info;
   }
