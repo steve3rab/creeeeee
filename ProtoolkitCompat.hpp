@@ -55,7 +55,7 @@
 #include <ProSizeConst.h>
 #include <ProToolkit.h>
 #else
-#include "creo/detail/ProtoolkitShim.hpp"
+#include "ProtoolkitShim.hpp"
 #endif
 
 namespace creo::detail {

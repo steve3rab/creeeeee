@@ -1,5 +1,5 @@
 #pragma once
-#include "creo/detail/ProtoolkitCompat.hpp"
+#include "ProtoolkitCompat.hpp"
 
 #include <stdexcept>
 #include <string>
