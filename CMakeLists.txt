@@ -94,6 +94,14 @@ if(CREO_WRAPPER_BUILD_TESTS)
   target_link_libraries(test_error PRIVATE creo_wrapper)
   add_test(NAME error COMMAND test_error)
 
+  # Application.hpp needs no live Creo session either (RunUserInitialize/
+  # RunUserTerminate only call the supplied init/terminate functor and
+  # catch what it throws), so it runs the same in shim or real-SDK mode,
+  # same as test_error above.
+  add_executable(test_application tests/test_application.cpp)
+  target_link_libraries(test_application PRIVATE creo_wrapper)
+  add_test(NAME application COMMAND test_application)
+
   if(WIN32)
     add_executable(test_property_utils tests/test_property_utils.cpp)
     target_link_libraries(test_property_utils PRIVATE property_utils)

@@ -70,6 +70,10 @@ include/creo/
                                     Axis, Quilt, Surface, Contour, Edge)
   Array.hpp                        Array<T>: RAII around ProArray
   Error.hpp                        ProToolkitError + CREO_CHECK macro
+  Application.hpp                  RunUserInitialize()/RunUserTerminate():
+                                    exception-safe wrapper for PTC's
+                                    mandatory user_initialize/
+                                    user_terminate entry points
   ScopeGuard.hpp                   Generic RAII "run on scope exit"
                                     (not ProTOOLKIT-specific)
   detail/ProtoolkitCompat.hpp      Real SDK / shim switch
@@ -81,6 +85,7 @@ tests/
                                     header, MIT license)
   test_scope_guard.cpp             Unit tests: ScopeGuard/Defer
   test_error.cpp                   Unit tests: Error
+  test_application.cpp             Unit tests: Application
   test_property_utils.cpp          Unit tests: PropertyUtils
 examples/
   hello_creo.cpp                   Tour of types/errors/Array + active model name
@@ -93,8 +98,9 @@ srcAcopier/
   ModelHandle.hpp,                 available): CREO_WRAPPER_HAS_REAL_SDK
   ModelItem.hpp, Geometry.hpp,     is hardcoded to 1 there (no shim
   Array.hpp, Error.hpp,            mode, the real SDK is required to
-  ScopeGuard.hpp,                  build). Same file split as
-  ProtoolkitCompat.hpp,            include/creo/ above.
+  Application.hpp,                 build). Same file split as
+  ScopeGuard.hpp,                  include/creo/ above.
+  ProtoolkitCompat.hpp,
   Error.cpp
   ProtoolkitCompatError.hpp        Minimal alternative to
                                     ProtoolkitCompat.hpp, scoped to only
@@ -173,6 +179,21 @@ has doctest itself generate `main()`):
   exception message with and without a context string, `code()`, and
   `ThrowIfError()`/`CREO_CHECK()` not throwing on success vs. throwing
   with the right code/message on failure.
+- `test_application.cpp` — `RunUserInitialize()`/`RunUserTerminate()`/
+  `InitializeArgs` (`creo/Application.hpp`), 12 cases. Needs no live Creo
+  session either (both functions only call the supplied init/terminate
+  functor and catch what it throws — no ProTOOLKIT call happens inside
+  either), so it runs the same in shim mode or real-SDK mode, same as
+  `test_error.cpp`: the success path (return 0, `errbuf` untouched),
+  `argc`/`argv`/`version`/`build` parsed correctly into `InitializeArgs`
+  (including null `argv`/`version`/`build`, and null entries inside a
+  non-null `argv`), a thrown `ProToolkitError` reporting its own code and
+  message in `errbuf`, the code-0 misuse case falling back to
+  `kAppInitFailCode`, a generic `std::exception` and a non-`std::exception`
+  value both reported as `kAppInitFailCode`, a too-long message truncated
+  without overrunning `errbuf`, a null `errbuf` tolerated safely,
+  `RunUserTerminate()` calling `terminate()` normally, and silently
+  swallowing an exception from it.
 - `test_property_utils.cpp` — `PropertyUtils` (`windows/PropertyUtils.hpp`),
   9 cases. Windows-only like the library itself (only registered with
   CTest under `if(WIN32)`): UTF-8/wide round-trips (ASCII and
@@ -185,17 +206,18 @@ Each test executable also runs standalone with doctest's own CLI, e.g.
 `./build/test_scope_guard.exe --list-test-cases` or
 `--test-case="Dismiss*"` to filter — see `--help` for the rest.
 
-All three were verified in this sandbox (no Windows/Wine available here)
+All four were verified in this sandbox (no Windows/Wine available here)
 via MinGW-w64 cross-compilation against the real Win32 headers for
 `test_property_utils.cpp`, plus real execution (all cases passing, and a
 deliberately-broken copy of `test_scope_guard.cpp` confirmed to fail with
 correct file:line reporting and a non-zero exit code) under
 AddressSanitizer/UndefinedBehaviorSanitizer on native Linux
-(`test_scope_guard.cpp`/`test_error.cpp` directly; `test_property_utils.cpp`
-against a small hand-written `windows.h` stand-in, scratch-only, not part
-of this repository). `test_error.cpp` was additionally run against a
-minimal real-SDK-mode stand-in (a hand-written `ProToolkit.h`, also
-scratch-only) to confirm it behaves identically in both modes, as
+(`test_scope_guard.cpp`/`test_error.cpp`/`test_application.cpp` directly;
+`test_property_utils.cpp` against a small hand-written `windows.h`
+stand-in, scratch-only, not part of this repository). `test_error.cpp`
+and `test_application.cpp` were additionally run against a minimal
+real-SDK-mode stand-in (a hand-written `ProToolkit.h`/PTC header set,
+also scratch-only) to confirm they behave identically in both modes, as
 claimed above.
 
 ## Testing/integrating one file at a time
@@ -213,9 +235,14 @@ dependencies first:
 3. `ProtoolkitCompat.hpp` — the first file that touches the real PTC
    headers directly; everything else depends on it.
 4. `Error.hpp` + `Error.cpp`.
-5. `Text.hpp`, then `ObjectType.hpp`, then `Array.hpp`.
-6. `ModelHandle.hpp`, then `ModelItem.hpp`.
-7. `Geometry.hpp` — only once you have a concrete real PTC type
+5. `Application.hpp` — only depends on `Error.hpp` (for
+   `ProToolkitError`/`ErrorCode`), not on `Text`/`ObjectType`/`ModelHandle`/
+   `ModelItem`/`Geometry`, so it can be wired into your real
+   `user_initialize`/`user_terminate` this early if that is your
+   immediate goal, ahead of the model-handling headers below.
+6. `Text.hpp`, then `ObjectType.hpp`, then `Array.hpp`.
+7. `ModelHandle.hpp`, then `ModelItem.hpp`.
+8. `Geometry.hpp` — only once you have a concrete real PTC type
    (`ProCsys`, `ProAxis`, ...) to hand it.
 
 Step 3/4 has a shortcut: `Error.hpp`/`Error.cpp` only ever use
@@ -1087,6 +1114,70 @@ implicitly `noexcept`: a throwing callable calls `std::terminate()`
 rather than letting the exception escape, the same rule the standard
 library itself follows for deleters, comparators, hash functors, and so
 on — write cleanup code that does not throw.
+
+### Application: `user_initialize` / `user_terminate`
+
+`creo::RunUserInitialize()`/`creo::RunUserTerminate()` (`Application.hpp`)
+wrap PTC's two mandatory application entry points — the exact contract
+every registered ProTOOLKIT application must export:
+
+```cpp
+extern "C" int user_initialize(int argc, char *argv[], char *version,
+                                char *build, wchar_t errbuf[80]);
+extern "C" void user_terminate();
+```
+
+These are literal entry points Creo calls directly: there is no
+caller-side `try`/`catch` on the other side of the C linkage boundary, so
+this is the single most important place in the wrapper for the rule
+"never let a C++ exception cross into a PTC/C call stack" — a stray
+exception here does not just corrupt one call's result, it escapes into
+Creo's own C runtime with undefined behavior. `RunUserInitialize()`/
+`RunUserTerminate()` exist so the two `extern "C"` functions never need
+any logic of their own besides a call into these:
+
+```cpp
+extern "C" int user_initialize(int argc, char *argv[], char *version,
+                                char *build, wchar_t errbuf[80]) {
+  return creo::RunUserInitialize(
+      argc, argv, version, build, errbuf,
+      [](const creo::InitializeArgs &args) {
+        // your real init code, may throw: add menus/buttons, read
+        // config, etc. `args.args`/`args.version`/`args.build` are a
+        // safer std::string_view-based view of the raw C parameters.
+      });
+}
+
+extern "C" void user_terminate() {
+  creo::RunUserTerminate([] {
+    // your real cleanup code, may throw
+  });
+}
+```
+
+`RunUserInitialize()` calls your `init` functor and turns whatever it
+throws into a `ProError` plus a diagnostic message written into `errbuf`,
+instead of letting it propagate: a thrown `creo::ProToolkitError`
+contributes its own `code()` (falling back to `creo::kAppInitFailCode` —
+`PRO_TK_APP_INIT_FAIL`, PTC's own code for "application failed to
+initialize" — if that code happens to be 0, since `PRO_TK_NO_ERROR` is
+not a valid failure code to report back to Creo); any other
+`std::exception`, or a value of a type this wrapper does not recognize,
+is also reported as `kAppInitFailCode`. Returns 0/`PRO_TK_NO_ERROR` on
+success. The `errbuf` write (`detail::WriteErrbuf`) widens each byte of
+the message as its own code point rather than decoding it as UTF-8 —
+deliberately not the codec `Text.hpp`/`PropertyUtils.hpp` use (Windows-only,
+throws on malformed input, and therefore unusable inside a `noexcept`
+boundary function): the messages it widens are always this wrapper's own
+exception text, always plain ASCII, so the simpler, always-succeeding,
+dependency-free approach is both correct and keeps `Application.hpp`
+portable/testable in shim mode like `Error.hpp`.
+
+`RunUserTerminate()` calls your `terminate` functor and silently
+swallows any exception: `user_terminate()` returns `void`, so there is no
+channel left to report a failure through — the only choice left is
+between swallowing it and letting it escape into Creo's C call stack,
+and the wrapper never does the latter.
 
 ### ObjectType
 
