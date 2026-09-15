@@ -168,6 +168,9 @@ private:
     ProMdl model = nullptr;
     CREO_CHECK(ProMdlCurrentGet(&model));
     if (model == nullptr) {
+      CREO_CHECK(ProWindowMdlGet(window_id, &model));
+    }
+    if (model == nullptr) {
       throw std::runtime_error("ModelHandle: no current model");
     }
     CREO_CHECK(ProMdlVerify(model));
