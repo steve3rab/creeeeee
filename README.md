@@ -180,11 +180,15 @@ has doctest itself generate `main()`):
   `ThrowIfError()`/`CREO_CHECK()` not throwing on success vs. throwing
   with the right code/message on failure.
 - `test_application.cpp` — `RunUserInitialize()`/`RunUserTerminate()`/
-  `InitializeArgs` (`creo/Application.hpp`), 12 cases. Needs no live Creo
-  session either (both functions only call the supplied init/terminate
-  functor and catch what it throws — no ProTOOLKIT call happens inside
-  either), so it runs the same in shim mode or real-SDK mode, same as
-  `test_error.cpp`: the success path (return 0, `errbuf` untouched),
+  `InitializeArgs`/`CREO_APP_EXPORT` (`creo/Application.hpp`), 13 cases.
+  Needs no live Creo session either (both functions only call the
+  supplied init/terminate functor and catch what it throws — no
+  ProTOOLKIT call happens inside either), so it runs the same in shim
+  mode or real-SDK mode, same as `test_error.cpp`: the documented
+  `CREO_APP_EXPORT`-decorated usage pattern compiling and working end to
+  end (real `user_initialize`/`user_terminate` functions defined exactly
+  as documented, not `RunUserInitialize`/`RunUserTerminate` called
+  directly), the success path (return 0, `errbuf` untouched),
   `argc`/`argv`/`version`/`build` parsed correctly into `InitializeArgs`
   (including null `argv`/`version`/`build`, and null entries inside a
   non-null `argv`), a thrown `ProToolkitError` reporting its own code and
@@ -193,7 +197,12 @@ has doctest itself generate `main()`):
   value both reported as `kAppInitFailCode`, a too-long message truncated
   without overrunning `errbuf`, a null `errbuf` tolerated safely,
   `RunUserTerminate()` calling `terminate()` normally, and silently
-  swallowing an exception from it.
+  swallowing an exception from it. Note the actual DLL-export effect of
+  `CREO_APP_EXPORT` (whether `GetProcAddress` can really find the symbol
+  from outside the module) is unverifiable here — that only manifests
+  once loaded by a real Creo process — so this test only confirms the
+  macro compiles and the function it decorates behaves correctly, not
+  that Creo can find it.
 - `test_property_utils.cpp` — `PropertyUtils` (`windows/PropertyUtils.hpp`),
   9 cases. Windows-only like the library itself (only registered with
   CTest under `if(WIN32)`): UTF-8/wide round-trips (ASCII and
@@ -1133,12 +1142,12 @@ this is the single most important place in the wrapper for the rule
 "never let a C++ exception cross into a PTC/C call stack" — a stray
 exception here does not just corrupt one call's result, it escapes into
 Creo's own C runtime with undefined behavior. `RunUserInitialize()`/
-`RunUserTerminate()` exist so the two `extern "C"` functions never need
-any logic of their own besides a call into these:
+`RunUserTerminate()` exist so the two exported functions never need any
+logic of their own besides a call into these:
 
 ```cpp
-extern "C" int user_initialize(int argc, char *argv[], char *version,
-                                char *build, wchar_t errbuf[80]) {
+CREO_APP_EXPORT int user_initialize(int argc, char *argv[], char *version,
+                                     char *build, wchar_t errbuf[80]) {
   return creo::RunUserInitialize(
       argc, argv, version, build, errbuf,
       [](const creo::InitializeArgs &args) {
@@ -1148,12 +1157,30 @@ extern "C" int user_initialize(int argc, char *argv[], char *version,
       });
 }
 
-extern "C" void user_terminate() {
+CREO_APP_EXPORT void user_terminate() {
   creo::RunUserTerminate([] {
     // your real cleanup code, may throw
   });
 }
 ```
+
+**Use `CREO_APP_EXPORT`, not a bare `extern "C"`, on both definitions.**
+`extern "C"` only stops C++ name mangling — it does not make the symbol
+visible outside the DLL. Creo loads your application as a DLL and
+resolves `user_initialize`/`user_terminate` by name (`LoadLibrary` +
+`GetProcAddress` on Windows), and a Windows DLL exports **no** symbol by
+default: MSVC in particular exports nothing unless told to (MinGW is
+more permissive but should not be relied on). A function built with only
+`extern "C"` compiles fine, has the right unmangled name, and is still
+invisible to `GetProcAddress` — Creo's loader simply fails to find it,
+silently, entirely outside your code, so this wrapper (or your code) has
+no way to detect or report it; it just looks like Creo "never calls"
+your application. `CREO_APP_EXPORT` (`Application.hpp`) expands to
+`extern "C" __declspec(dllexport)` on Windows (a plain `extern "C"`
+elsewhere, e.g. when compiling this header's own portable unit tests off
+Windows). A module-definition (`.def`) file listing the same two names
+under `EXPORTS` is the other common way PTC sample projects solve this —
+either is sufficient on its own; using both is redundant but harmless.
 
 `RunUserInitialize()` calls your `init` functor and turns whatever it
 throws into a `ProError` plus a diagnostic message written into `errbuf`,

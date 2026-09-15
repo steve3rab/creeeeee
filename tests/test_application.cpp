@@ -43,6 +43,49 @@ struct FakeArgv {
 
 } // namespace
 
+// Mirrors the documented real-world usage pattern verbatim (see
+// Application.hpp's file-level comment and the two functions'
+// docstrings): CREO_APP_EXPORT rather than a bare extern "C", so this
+// also confirms the macro itself compiles to a well-formed function
+// definition, not just that RunUserInitialize/RunUserTerminate work when
+// called directly. `g_last_args_seen`/`g_terminate_called` are only
+// observable from within this translation unit; nothing beyond compiling
+// and calling these two functions is meaningful outside a real Creo
+// process (there's no way to check they're actually exported from a DLL
+// without one).
+namespace {
+int g_last_argc_seen = -1;
+bool g_terminate_called = false;
+} // namespace
+
+CREO_APP_EXPORT int user_initialize(int argc, char *argv[], char *version,
+                                     char *build, wchar_t errbuf[80]) {
+  return creo::RunUserInitialize(
+      argc, argv, version, build, errbuf,
+      [](const creo::InitializeArgs &args) {
+        g_last_argc_seen = static_cast<int>(args.args.size());
+      });
+}
+
+CREO_APP_EXPORT void user_terminate() {
+  creo::RunUserTerminate([] { g_terminate_called = true; });
+}
+
+TEST_CASE("The documented CREO_APP_EXPORT usage pattern compiles and "
+          "works end to end") {
+  wchar_t errbuf[creo::detail::kErrbufSize];
+  FakeArgv fake;
+
+  int result = user_initialize(fake.argc, fake.argv,
+                                const_cast<char *>("J1"),
+                                const_cast<char *>("1"), errbuf);
+  CHECK(result == 0);
+  CHECK(g_last_argc_seen == 2);
+
+  user_terminate();
+  CHECK(g_terminate_called);
+}
+
 TEST_CASE("RunUserInitialize returns 0 and leaves errbuf untouched on "
           "success") {
   wchar_t errbuf[creo::detail::kErrbufSize];

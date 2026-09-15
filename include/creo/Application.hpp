@@ -27,7 +27,29 @@
 // RunUserInitialize()/RunUserTerminate() below exist so the two `extern
 // "C"` functions never contain any logic themselves besides the call
 // into these helpers, which do the actual catching.
+//
+// `extern "C"` alone only prevents C++ name mangling: it does NOT make a
+// symbol visible outside the DLL. Creo loads your application as a DLL
+// and resolves user_initialize/user_terminate by name (LoadLibrary +
+// GetProcAddress on Windows), and a Windows DLL exports no symbol by
+// default -- MSVC in particular exports nothing unless told to (MinGW is
+// more permissive but should not be relied on either). Without an
+// explicit export, the functions compile fine, the names are unmangled,
+// and Creo's loader still cannot find them: this failure happens
+// entirely inside Creo's own loader, so nothing in this wrapper (or your
+// code) can detect or report it. CREO_APP_EXPORT below adds the missing
+// __declspec(dllexport); use it on both function definitions instead of
+// a bare `extern "C"`. A module-definition (.def) file listing the same
+// two names in an EXPORTS section is the other common way PTC sample
+// projects solve this — either is sufficient, and using both together is
+// redundant but harmless.
 // -----------------------------------------------------------------------
+
+#if defined(_WIN32)
+#define CREO_APP_EXPORT extern "C" __declspec(dllexport)
+#else
+#define CREO_APP_EXPORT extern "C"
+#endif
 
 namespace creo {
 
@@ -94,10 +116,12 @@ inline void WriteErrbuf(wchar_t *errbuf, std::size_t buffer_size,
 // valid failure code to report back to Creo); any other std::exception,
 // or a value of an unknown type, is reported as kAppInitFailCode.
 //
-// Usage:
+// Usage (CREO_APP_EXPORT, not a bare extern "C": see the file-level
+// comment above for why the export matters):
 //
-//   extern "C" int user_initialize(int argc, char *argv[], char *version,
-//                                   char *build, wchar_t errbuf[80]) {
+//   CREO_APP_EXPORT int user_initialize(int argc, char *argv[],
+//                                        char *version, char *build,
+//                                        wchar_t errbuf[80]) {
 //     return creo::RunUserInitialize(
 //         argc, argv, version, build, errbuf,
 //         [](const creo::InitializeArgs &args) {
@@ -148,9 +172,10 @@ int RunUserInitialize(int argc, char *argv[], char *version, char *build,
 // there is nothing left to do with one at this point besides let it
 // escape into Creo's C call stack, which the wrapper never allows.
 //
-// Usage:
+// Usage (CREO_APP_EXPORT, not a bare extern "C" -- see the file-level
+// comment above):
 //
-//   extern "C" void user_terminate() {
+//   CREO_APP_EXPORT void user_terminate() {
 //     creo::RunUserTerminate([] {
 //       // your real cleanup code, may throw
 //     });

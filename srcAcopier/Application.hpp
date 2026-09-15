@@ -6,6 +6,12 @@
 #include <string_view>
 #include <vector>
 
+#if defined(_WIN32)
+#define CREO_APP_EXPORT extern "C" __declspec(dllexport)
+#else
+#define CREO_APP_EXPORT extern "C"
+#endif
+
 namespace creo {
 
 struct InitializeArgs {
